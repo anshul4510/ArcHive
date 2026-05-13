@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-primary: #F5F3EF;
+    --bg-dark: #0E0E0C;
+    --accent-gold: #C8A96A;
+    --accent-gold-dim: #A8894A;
+    --text-primary: #1A1A1A;
+    --text-muted: #6B6860;
+    --surface: #EDEBE6;
+    --border: rgba(200, 169, 106, 0.2);
+    --glass: rgba(245, 243, 239, 0.08);
+  }
+
+  html, body {
+    @apply bg-bg-primary text-text-primary font-sans antialiased;
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+  }
+  
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--bg-dark);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--accent-gold-dim);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-gold);
+  }
+}
+
+@layer utilities {
+  .text-shadow-glow {
+    text-shadow: 0 0 20px rgba(200, 169, 106, 0.3);
+  }
+  
+  .glass-panel {
+    @apply bg-glass backdrop-blur-[16px] border border-border-gold;
+  }
+}
+
+/* Animations */
+@keyframes hexPulse {
+  0% { opacity: 0.03; }
+  50% { opacity: 0.12; }
+  100% { opacity: 0.03; }
+}
+
+.animate-hex-pulse {
+  animation: hexPulse 4s ease-in-out infinite;
+}

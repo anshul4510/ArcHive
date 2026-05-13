@@ -1,0 +1,104 @@
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+import Home from './pages/Home';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Hexagon } from 'lucide-react';
+
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+};
+
+// Custom Cursor Component
+const CustomCursor = () => {
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  
+  useEffect(() => {
+    const updateMousePosition = (e) => {
+      setMousePosition({ x: e.clientX, y: e.clientY });
+    };
+    window.addEventListener('mousemove', updateMousePosition);
+    return () => window.removeEventListener('mousemove', updateMousePosition);
+  }, []);
+
+  return (
+    <motion.div
+      className="hidden lg:flex fixed top-0 left-0 w-8 h-8 pointer-events-none z-[100] items-center justify-center mix-blend-difference"
+      animate={{ x: mousePosition.x - 16, y: mousePosition.y - 16 }}
+      transition={{ type: "spring", stiffness: 500, damping: 28, mass: 0.5 }}
+    >
+      <Hexagon className="w-6 h-6 text-accent-gold opacity-80" strokeWidth={1} />
+    </motion.div>
+  );
+};
+
+// Loading Screen Component
+const LoadingScreen = ({ onComplete }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onComplete();
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [onComplete]);
+
+  return (
+    <motion.div 
+      initial={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.8, ease: "easeInOut" }}
+      className="fixed inset-0 z-[200] bg-bg-dark flex items-center justify-center"
+    >
+      <div className="flex flex-col items-center">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+        >
+          <Hexagon className="w-16 h-16 text-accent-gold" strokeWidth={1} />
+        </motion.div>
+        <motion.p 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="font-serif text-2xl text-accent-gold mt-6 tracking-widest"
+        >
+          ArcHive
+        </motion.p>
+      </div>
+    </motion.div>
+  );
+};
+
+function App() {
+  const [loading, setLoading] = useState(true);
+
+  return (
+    <Router>
+      <ScrollToTop />
+      <AnimatePresence>
+        {loading && <LoadingScreen onComplete={() => setLoading(false)} />}
+      </AnimatePresence>
+      
+      {!loading && (
+        <>
+          <CustomCursor />
+          <Navbar />
+          <main className="min-h-screen">
+            <Routes>
+              <Route path="/" element={<Home />} />
+              {/* Other routes can be added here, showing Home for now */}
+              <Route path="*" element={<Home />} />
+            </Routes>
+          </main>
+          <Footer />
+        </>
+      )}
+    </Router>
+  );
+}
+
+export default App;
