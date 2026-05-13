@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, useScroll, useTransform, useInView } from 'framer-motion';
 import { ChevronDown, ArrowRight, Layers, Home as HomeIcon, Map, Grid, Columns, Hexagon } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import HexBackground from '../components/HexBackground';
 
 const Home = () => {
+  const navigate = useNavigate();
   const { scrollY } = useScroll();
   const heroY = useTransform(scrollY, [0, 1000], [0, 400]);
 
@@ -174,12 +175,12 @@ const Home = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
             {[
-              { title: 'Residential Design', icon: <HomeIcon strokeWidth={1} className="w-8 h-8" />, desc: 'Bespoke homes blending high structural integrity with deep personal comfort.' },
-              { title: 'Commercial Architecture', icon: <Layers strokeWidth={1} className="w-8 h-8" />, desc: 'Innovative workspaces and retail environments engineered for performance.' },
-              { title: 'Urban Planning', icon: <Map strokeWidth={1} className="w-8 h-8" />, desc: 'Large-scale structural integrations designed for community and flow.' },
-              { title: 'Interior Design', icon: <Grid strokeWidth={1} className="w-8 h-8" />, desc: 'Refined interior spaces highlighting materiality and light.' },
-              { title: 'Landscape Architecture', icon: <Columns strokeWidth={1} className="w-8 h-8" />, desc: 'Harmonizing built environments with organic natural surroundings.' },
-              { title: 'Heritage Restoration', icon: <Hexagon strokeWidth={1} className="w-8 h-8" />, desc: 'Preserving historical integrity while adapting for modern utility.' }
+              { title: 'Residential Design', category: 'Residential', icon: <HomeIcon strokeWidth={1} className="w-8 h-8" />, desc: 'Bespoke homes blending high structural integrity with deep personal comfort.' },
+              { title: 'Commercial Architecture', category: 'Commercial', icon: <Layers strokeWidth={1} className="w-8 h-8" />, desc: 'Innovative workspaces and retail environments engineered for performance.' },
+              { title: 'Urban Planning', category: 'Urban Planning', icon: <Map strokeWidth={1} className="w-8 h-8" />, desc: 'Large-scale structural integrations designed for community and flow.' },
+              { title: 'Interior Design', category: 'Interior', icon: <Grid strokeWidth={1} className="w-8 h-8" />, desc: 'Refined interior spaces highlighting materiality and light.' },
+              { title: 'Landscape Architecture', category: 'Landscape', icon: <Columns strokeWidth={1} className="w-8 h-8" />, desc: 'Harmonizing built environments with organic natural surroundings.' },
+              { title: 'Heritage Restoration', category: 'Heritage', icon: <Hexagon strokeWidth={1} className="w-8 h-8" />, desc: 'Preserving historical integrity while adapting for modern utility.' }
             ].map((service, i) => (
               <motion.div 
                 key={i}
@@ -187,7 +188,8 @@ const Home = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
-                className="group relative bg-white/[0.03] border border-border-gold p-8 rounded-cards hover:-translate-y-2 transition-all duration-300 hover:shadow-gold-glow overflow-hidden backdrop-blur-md"
+                className="group relative bg-white/[0.03] border border-border-gold p-8 rounded-cards hover:-translate-y-2 transition-all duration-300 hover:shadow-gold-glow overflow-hidden backdrop-blur-md cursor-pointer"
+                onClick={() => navigate('/projects', { state: { category: service.category } })}
               >
                 {/* Hex watermark on hover */}
                 <Hexagon className="absolute -bottom-8 -right-8 w-40 h-40 text-accent-gold opacity-0 group-hover:opacity-5 transition-opacity duration-500" strokeWidth={0.5} />
@@ -196,10 +198,10 @@ const Home = () => {
                 <h3 className="font-serif text-2xl text-bg-primary mb-4">{service.title}</h3>
                 <p className="font-sans text-text-muted mb-8 line-clamp-2">{service.desc}</p>
                 
-                <Link to="/services" className="inline-flex items-center text-sm font-sans font-medium text-surface group/link">
+                <div className="inline-flex items-center text-sm font-sans font-medium text-surface group/link">
                   Explore
                   <ArrowRight className="w-4 h-4 ml-2 group-hover/link:translate-x-1 transition-transform text-accent-gold" />
-                </Link>
+                </div>
               </motion.div>
             ))}
           </div>

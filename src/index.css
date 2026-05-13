@@ -45,6 +45,15 @@
   .glass-panel {
     @apply bg-glass backdrop-blur-[16px] border border-border-gold;
   }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
 
 /* Animations */

@@ -51,15 +51,23 @@ const Navbar = () => {
   ];
 
   // Theme-based styling
-  // isDarkBg = true -> background is dark, use light text (primary)
-  // isDarkBg = false -> background is light, use dark text (near black)
-  const textColor = isDarkBg ? 'text-bg-primary' : 'text-bg-dark';
-  const logoColor = isDarkBg ? 'text-bg-primary' : 'text-bg-dark';
-  const iconColor = isDarkBg ? 'text-accent-gold' : 'text-bg-dark'; // Icon turns black on light bg for max legibility
-  const sublogoColor = isDarkBg ? 'text-accent-gold' : 'text-bg-dark/70'; // Subtitle turns muted black on light bg
+  // isDarkBg = true -> section background is dark
+  // isDarkBg = false -> section background is light (white/off-white)
+  
+  // If the background is light (isDarkBg=false), the user wants the navbar to turn BLACK.
+  // If the background is dark (isDarkBg=true), the navbar can stay transparent or dark.
+  
+  // Theme-based styling
+  // isDarkBg = true -> section background is dark (use light text)
+  // isDarkBg = false -> section background is light (use dark text)
+  
+  const textColor = isDarkBg ? 'text-bg-primary' : 'text-bg-dark'; 
+  const logoColor = isDarkBg ? 'text-bg-primary' : 'text-bg-dark'; 
+  const iconColor = 'text-accent-gold'; // Always golden as requested
+  const sublogoColor = isDarkBg ? 'text-accent-gold' : 'text-bg-dark/70';
   
   const navBg = scrolled 
-    ? (isDarkBg ? 'bg-bg-dark/90 backdrop-blur-[20px] shadow-soft' : 'bg-bg-primary/95 backdrop-blur-[20px] shadow-soft') 
+    ? (isDarkBg ? 'bg-bg-dark/90 backdrop-blur-[20px] shadow-soft' : 'bg-bg-primary/90 backdrop-blur-[20px] shadow-soft') 
     : 'bg-transparent';
   
   const btnBg = isDarkBg ? 'bg-accent-gold text-bg-dark' : 'bg-bg-dark text-accent-gold';
