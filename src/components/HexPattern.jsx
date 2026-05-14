@@ -1,17 +1,18 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { motion } from 'framer-motion';
 
 const HexPattern = ({ dark = false }) => {
+  const patternId = useId();
   const outlineOpacity = dark ? 0.08 : 0.05;
   const strokeColor = '#C8A96A';
 
   return (
-    <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+    <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
       {/* Base Hexagon SVG Pattern */}
       <svg width="100%" height="100%" className="absolute inset-0">
         <defs>
           <pattern
-            id="hex-pattern"
+            id={patternId}
             x="0"
             y="0"
             width="55.42" /* 32 * sqrt(3) */
@@ -28,7 +29,7 @@ const HexPattern = ({ dark = false }) => {
             />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill="url(#hex-pattern)" />
+        <rect width="100%" height="100%" fill={`url(#${patternId})`} />
       </svg>
       
       {/* Animated Gradient Overlay for Pulse Effect */}

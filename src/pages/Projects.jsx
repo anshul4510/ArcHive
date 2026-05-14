@@ -78,7 +78,7 @@ const Projects = () => {
         <div className="container mx-auto px-6 relative z-10 flex justify-between items-center w-full">
           {/* Left Side */}
           <div className="max-w-xl">
-            <nav className="font-mono text-[11px] text-accent-gold mb-4 uppercase tracking-wider">
+            <nav className="font-mono text-[11px] text-accent-gold mb-4 uppercase tracking-wider flex items-center">
               Home <ChevronRight className="w-3 h-3 mx-2 opacity-50" />
               <span>Projects</span>
             </nav>

@@ -208,7 +208,7 @@ const ProjectDetail = () => {
           
           {/* Breadcrumb & Navigation */}
           <div className="flex justify-between items-center mb-6">
-            <nav className="font-mono text-[11px] text-text-muted uppercase tracking-wider">
+            <nav className="font-mono text-[11px] text-text-muted uppercase tracking-wider flex items-center">
               <Link to="/" className="hover:text-accent-gold transition-colors">Home</Link>
               <span className="mx-2">›</span>
               <Link to="/projects" className="hover:text-accent-gold transition-colors">Projects</Link>

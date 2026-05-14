@@ -9,6 +9,9 @@ import AuthLayout from './pages/AuthLayout';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Profile from './pages/Profile';
+import Services from './pages/Services';
+import Repository from './pages/Repository';
+import About from './pages/About';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Hexagon } from 'lucide-react';
 
@@ -95,6 +98,9 @@ const AppContent = () => {
           <Route path="/login" element={<AuthLayout><Login /></AuthLayout>} />
           <Route path="/signup" element={<AuthLayout><Signup /></AuthLayout>} />
           <Route path="/profile/:username?/:tab?" element={<Profile />} />
+          <Route path="/services" element={<Services />} />
+          <Route path="/repository" element={<Repository />} />
+          <Route path="/about" element={<About />} />
           <Route path="*" element={<Home />} />
         </Routes>
       </main>

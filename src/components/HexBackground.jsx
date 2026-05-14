@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useId } from 'react';
 
 const HexBackground = ({ density = 10, opacity = 0.05, animated = true }) => {
+  const patternId = useId();
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
       <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <pattern
-            id="hex-pattern"
+            id={patternId}
             x="0"
             y="0"
             width="60"
@@ -33,7 +34,7 @@ const HexBackground = ({ density = 10, opacity = 0.05, animated = true }) => {
             />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill="url(#hex-pattern)" />
+        <rect width="100%" height="100%" fill={`url(#${patternId})`} />
       </svg>
     </div>
   );
