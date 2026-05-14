@@ -5,6 +5,10 @@ import Footer from './components/Footer';
 import Home from './pages/Home';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
+import AuthLayout from './pages/AuthLayout';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+import Profile from './pages/Profile';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Hexagon } from 'lucide-react';
 
@@ -75,6 +79,30 @@ const LoadingScreen = ({ onComplete }) => {
   );
 };
 
+const AppContent = () => {
+  const location = useLocation();
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/signup';
+
+  return (
+    <>
+      <CustomCursor />
+      {!isAuthPage && <Navbar />}
+      <main className="min-h-screen">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/projects" element={<Projects />} />
+          <Route path="/projects/:id" element={<ProjectDetail />} />
+          <Route path="/login" element={<AuthLayout><Login /></AuthLayout>} />
+          <Route path="/signup" element={<AuthLayout><Signup /></AuthLayout>} />
+          <Route path="/profile/:username?/:tab?" element={<Profile />} />
+          <Route path="*" element={<Home />} />
+        </Routes>
+      </main>
+      {!isAuthPage && <Footer />}
+    </>
+  );
+};
+
 function App() {
   const [loading, setLoading] = useState(true);
 
@@ -85,21 +113,7 @@ function App() {
         {loading && <LoadingScreen onComplete={() => setLoading(false)} />}
       </AnimatePresence>
       
-      {!loading && (
-        <>
-          <CustomCursor />
-          <Navbar />
-          <main className="min-h-screen">
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/projects" element={<Projects />} />
-              <Route path="/projects/:id" element={<ProjectDetail />} />
-              <Route path="*" element={<Home />} />
-            </Routes>
-          </main>
-          <Footer />
-        </>
-      )}
+      {!loading && <AppContent />}
     </Router>
   );
 }

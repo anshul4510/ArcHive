@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, ChevronDown, Grid, List, Columns, Heart, ArrowUp, X, Hexagon, Filter, MapPin, Eye, Calendar, ArrowRight } from 'lucide-react';
+import { Search, ChevronDown, Grid, List, Columns, Heart, ArrowUp, X, Hexagon, Filter, MapPin, Eye, Calendar, ArrowRight, ChevronRight } from 'lucide-react';
 import HexPattern from '../components/HexPattern';
 import { mockProjects } from '../data/mockProjects';
 
@@ -79,8 +79,7 @@ const Projects = () => {
           {/* Left Side */}
           <div className="max-w-xl">
             <nav className="font-mono text-[11px] text-accent-gold mb-4 uppercase tracking-wider">
-              <Link to="/" className="hover:text-white transition-colors">Home</Link>
-              <span className="mx-2">›</span>
+              Home <ChevronRight className="w-3 h-3 mx-2 opacity-50" />
               <span>Projects</span>
             </nav>
             <h1 className="font-serif text-5xl text-white mb-3">Explore Designs</h1>
@@ -386,7 +385,7 @@ const ProjectCard = ({ project, viewMode, navigate, variants }) => {
         {/* Hover Overlay */}
         <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/80 to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-300 flex items-end p-4">
           <span className="text-white font-sans text-sm font-medium flex items-center">
-            View Project <span className="ml-2 group-hover:translate-x-1 transition-transform">→</span>
+            View Project <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
           </span>
         </div>
 

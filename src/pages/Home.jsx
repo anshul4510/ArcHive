@@ -107,7 +107,7 @@ const Home = () => {
               <img src="/about.png" alt="ArcHive Studio" className="w-full h-full object-cover z-10 relative" />
               <div className="absolute -bottom-8 -right-8 bg-bg-dark text-accent-gold p-8 z-20 shadow-elevated">
                 <p className="font-serif text-5xl mb-2">Est.</p>
-                <p className="font-mono text-xl tracking-widest">2009</p>
+                <p className="font-mono text-xl tracking-widest">2026</p>
               </div>
             </motion.div>
             

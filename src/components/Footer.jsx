@@ -33,10 +33,17 @@ const Footer = () => {
           <div>
             <h4 className="font-serif text-lg mb-6 text-surface">Explore</h4>
             <ul className="space-y-4">
-              {['Home', 'Projects', 'Services', 'About Repository', 'Journal'].map((link) => (
-                <li key={link}>
-                  <Link to={`/${link.split(' ')[0].toLowerCase()}`} className="font-sans text-sm text-text-muted hover:text-accent-gold transition-colors inline-block relative group">
-                    {link}
+              {[
+                { name: 'Home', path: '/' },
+                { name: 'Projects', path: '/projects' },
+                { name: 'Services', path: '/services' },
+                { name: 'Repository', path: '/repository' },
+                { name: 'Studio', path: '/studio' },
+                { name: 'About', path: '/about' }
+              ].map((link) => (
+                <li key={link.name}>
+                  <Link to={link.path} className="font-sans text-sm text-text-muted hover:text-accent-gold transition-colors inline-block relative group">
+                    {link.name}
                     <span className="absolute -bottom-1 left-0 h-[1px] w-0 bg-accent-gold transition-all duration-300 group-hover:w-full"></span>
                   </Link>
                 </li>
@@ -48,10 +55,20 @@ const Footer = () => {
           <div>
             <h4 className="font-serif text-lg mb-6 text-surface">Expertise</h4>
             <ul className="space-y-4">
-              {['Residential Design', 'Commercial Architecture', 'Urban Planning', 'Interior Design', 'Heritage Restoration'].map((service) => (
-                <li key={service}>
-                  <Link to="/services" className="font-sans text-sm text-text-muted hover:text-accent-gold transition-colors inline-block relative group">
-                    {service}
+              {[
+                { name: 'Residential Design', cat: 'Residential' },
+                { name: 'Commercial Architecture', cat: 'Commercial' },
+                { name: 'Urban Planning', cat: 'Urban Planning' },
+                { name: 'Interior Design', cat: 'Interior' },
+                { name: 'Heritage Restoration', cat: 'Heritage' }
+              ].map((service) => (
+                <li key={service.name}>
+                  <Link 
+                    to="/projects" 
+                    state={{ category: service.cat }}
+                    className="font-sans text-sm text-text-muted hover:text-accent-gold transition-colors inline-block relative group"
+                  >
+                    {service.name}
                     <span className="absolute -bottom-1 left-0 h-[1px] w-0 bg-accent-gold transition-all duration-300 group-hover:w-full"></span>
                   </Link>
                 </li>
@@ -96,7 +113,7 @@ const Footer = () => {
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-text-muted/20 flex flex-col md:flex-row justify-between items-center">
           <p className="font-mono text-xs text-text-muted uppercase tracking-widest mb-4 md:mb-0">
-            &copy; {new Date().getFullYear()} ArcHive Repository. All rights reserved.
+            &copy; {new Date().getFullYear()} ArcHive Repository. Established in 2026. All rights reserved.
           </p>
           <div className="flex space-x-6">
             <Link to="/privacy" className="font-mono text-xs text-text-muted uppercase tracking-widest hover:text-accent-gold transition-colors">Privacy Policy</Link>

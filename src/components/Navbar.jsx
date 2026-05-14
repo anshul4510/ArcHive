@@ -6,10 +6,29 @@ import { Link, useLocation } from 'react-router-dom';
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [isDarkBg, setIsDarkBg] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userName, setUserName] = useState('Arch. Julian');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
+    // Auth Check
+    const checkAuth = () => {
+      const authData = localStorage.getItem('archive_auth');
+      if (authData) {
+        try {
+          const parsed = JSON.parse(authData);
+          setIsLoggedIn(true);
+          setUserName(parsed.name || 'User');
+        } catch(e) {
+          setIsLoggedIn(false);
+        }
+      } else {
+        setIsLoggedIn(false);
+      }
+    };
+    checkAuth();
+
     const handleScroll = () => {
       const scrollPos = window.scrollY;
       setScrolled(scrollPos > 50);
@@ -30,14 +49,17 @@ const Navbar = () => {
     };
     
     window.addEventListener('scroll', handleScroll, { passive: true });
+    // Run immediately to set initial state
     handleScroll();
     
-    // Safety check for dynamic layout shifts
-    const intervalId = setInterval(handleScroll, 1000);
+    // Safety check for dynamic layout shifts and initial render
+    const timer = setTimeout(handleScroll, 100);
+    const intervalId = setInterval(handleScroll, 500);
     
     return () => {
       window.removeEventListener('scroll', handleScroll);
       clearInterval(intervalId);
+      clearTimeout(timer);
     };
   }, [location.pathname]);
 
@@ -45,32 +67,22 @@ const Navbar = () => {
     { name: 'Home', path: '/' },
     { name: 'Projects', path: '/projects' },
     { name: 'Services', path: '/services' },
+    { name: 'Repository', path: '/repository' },
+    { name: 'Studio', path: '/studio' },
     { name: 'About', path: '/about' },
-    { name: 'Journal', path: '/journal' },
-    { name: 'Contact', path: '/contact' },
   ];
 
-  // Theme-based styling
-  // isDarkBg = true -> section background is dark
-  // isDarkBg = false -> section background is light (white/off-white)
-  
-  // If the background is light (isDarkBg=false), the user wants the navbar to turn BLACK.
-  // If the background is dark (isDarkBg=true), the navbar can stay transparent or dark.
-  
-  // Theme-based styling
-  // isDarkBg = true -> section background is dark (use light text)
-  // isDarkBg = false -> section background is light (use dark text)
-  
-  const textColor = isDarkBg ? 'text-bg-primary' : 'text-bg-dark'; 
-  const logoColor = isDarkBg ? 'text-bg-primary' : 'text-bg-dark'; 
-  const iconColor = 'text-accent-gold'; // Always golden as requested
-  const sublogoColor = isDarkBg ? 'text-accent-gold' : 'text-bg-dark/70';
+  // Theme-based styling (High contrast)
+  const textColor = isDarkBg ? 'text-white' : 'text-[#0E0E0C]'; 
+  const logoColor = isDarkBg ? 'text-white' : 'text-[#0E0E0C]'; 
+  const iconColor = 'text-accent-gold'; 
+  const sublogoColor = isDarkBg ? 'text-accent-gold' : 'text-[#0E0E0C]/60';
   
   const navBg = scrolled 
-    ? (isDarkBg ? 'bg-bg-dark/90 backdrop-blur-[20px] shadow-soft' : 'bg-bg-primary/90 backdrop-blur-[20px] shadow-soft') 
+    ? (isDarkBg ? 'bg-[#0E0E0C]/95 backdrop-blur-[20px] shadow-soft' : 'bg-white/95 backdrop-blur-[20px] shadow-soft') 
     : 'bg-transparent';
   
-  const btnBg = isDarkBg ? 'bg-accent-gold text-bg-dark' : 'bg-bg-dark text-accent-gold';
+  const btnBg = 'bg-accent-gold text-[#0E0E0C] hover:bg-accent-gold-dim';
 
   return (
     <>
@@ -89,7 +101,7 @@ const Navbar = () => {
               </span>
             </div>
             <span className={`font-mono text-[9px] uppercase tracking-[0.25em] ml-9 mt-0.5 transition-colors duration-500 ${sublogoColor}`}>
-              Global Architecture Repository
+              Global Architecture Repository &middot; Est. 2026
             </span>
           </Link>
 
@@ -112,9 +124,12 @@ const Navbar = () => {
                 </Link>
               );
             })}
-            <button className={`px-6 py-2.5 rounded-buttons font-sans font-medium text-sm transition-all duration-500 transform hover:scale-105 shadow-soft ${btnBg}`}>
-              Get Consultation
-            </button>
+            <Link 
+              to={isLoggedIn ? '/profile' : '/login'}
+              className={`px-6 py-2.5 rounded-buttons font-sans font-medium text-sm transition-all duration-500 transform hover:scale-105 shadow-soft ${btnBg}`}
+            >
+              {isLoggedIn ? userName : 'Login / Sign Up'}
+            </Link>
           </nav>
 
           {/* Mobile Toggle */}
@@ -163,14 +178,19 @@ const Navbar = () => {
                   </Link>
                 </motion.div>
               ))}
-              <motion.button 
+              <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: navLinks.length * 0.1 }}
-                className="mt-8 bg-accent-gold text-bg-dark px-8 py-3 rounded-buttons font-sans font-medium text-lg mx-auto"
               >
-                Get Consultation
-              </motion.button>
+                <Link 
+                  to={isLoggedIn ? '/profile' : '/login'}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="mt-8 bg-accent-gold text-bg-dark px-8 py-3 rounded-buttons font-sans font-medium text-lg mx-auto inline-block"
+                >
+                  {isLoggedIn ? userName : 'Login / Sign Up'}
+                </Link>
+              </motion.div>
             </div>
           </motion.div>
         )}

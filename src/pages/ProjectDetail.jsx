@@ -5,7 +5,7 @@ import {
   ArrowLeft, Heart, ArrowUp, Share, MessageSquare, 
   Download, Hexagon, FileText, Layout, FileImage, 
   MoreHorizontal, ChevronLeft, ChevronRight, X,
-  MapPin, Eye, Calendar, Layers, User, Clock, ArrowRight, ChevronDown
+  MapPin, Eye, Calendar, Layers, User, Clock, ArrowRight, ChevronDown, Flag, ExternalLink
 } from 'lucide-react';
 import { mockProjects } from '../data/mockProjects';
 import HexPattern from '../components/HexPattern';
@@ -99,7 +99,10 @@ const ProjectDetail = () => {
                   <button className="flex-1 py-2 border border-border-gold rounded-buttons font-sans text-sm text-text-primary hover:bg-surface transition-all">
                     Message
                   </button>
-                  <button className="flex-1 py-2 font-sans text-sm text-text-muted hover:text-accent-gold transition-all flex items-center justify-center group">
+                  <button 
+                    onClick={() => navigate(`/profile/${project.author.handle}`)}
+                    className="flex-1 py-2 font-sans text-sm text-text-muted hover:text-accent-gold transition-all flex items-center justify-center group"
+                  >
                     Profile <ArrowRight className="w-3.5 h-3.5 ml-1 group-hover:translate-x-1 transition-transform" />
                   </button>
                 </div>
@@ -192,8 +195,8 @@ const ProjectDetail = () => {
 
             <hr className="border-border-gold my-4 opacity-40" />
             <div className="flex justify-between font-sans text-[11px] text-text-muted">
-              <button className="hover:text-red-500 transition-colors">🚩 Report Project</button>
-              <button className="hover:text-text-primary transition-colors">Share ↗</button>
+              <button className="hover:text-red-500 transition-colors flex items-center"><Flag className="w-3.5 h-3.5 mr-1.5" /> Report Project</button>
+              <button className="hover:text-text-primary transition-colors flex items-center">Share <ExternalLink className="w-3.5 h-3.5 ml-1.5" /></button>
             </div>
           </div>
         </aside>

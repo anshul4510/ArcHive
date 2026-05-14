@@ -66,3 +66,53 @@
 .animate-hex-pulse {
   animation: hexPulse 4s ease-in-out infinite;
 }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.animate-shake {
+  animation: shake 0.3s ease-in-out;
+}
+
+@keyframes fall {
+  0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+}
+
+.animate-fall {
+  animation: fall 3s linear forwards;
+}
+
+/* Floating Label Input */
+.float-label-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.float-input {
+  /* Inherits tailwind styles, mostly for targeting */
+}
+
+.float-label {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  color: #6B6860;
+  font-size: 14px;
+}
+
+.float-input:focus + .float-label,
+.float-input:not(:placeholder-shown) + .float-label {
+  transform: translateY(-22px) scale(0.82);
+  transform-origin: left top;
+}
+
+.float-input:focus + .float-label {
+  color: #C8A96A;
+}

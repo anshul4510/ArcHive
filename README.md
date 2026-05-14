@@ -1,7 +1,7 @@
 # ArcHive | Global Architecture Repository
 
 <div align="center">
-  <img src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=1200" alt="ArcHive Hero" width="100%" style="border-radius: 12px; margin-bottom: 20px;" />
+  <img src="./public/image.png" alt="ArcHive Home" width="100%" style="border-radius: 12px; margin-bottom: 20px; border: 1px solid #C8A96A;" />
   
   [![React](https://img.shields.io/badge/React-19-blue?logo=react)](https://react.dev/)
   [![Vite](https://img.shields.io/badge/Vite-6-purple?logo=vite)](https://vitejs.dev/)
@@ -20,6 +20,15 @@ ArcHive isn't just a portfolio; it's a global infrastructure for architectural i
 
 ---
 
+## 🔐 Demo Credentials
+To explore the authenticated features (Profile, Insights, Settings), use the following credentials:
+
+| Identity | Email | Password |
+| :--- | :--- | :--- |
+| **Architect Demo** | `demo@archive.com` | `archive2026` |
+
+---
+
 ## ✨ Core Features
 
 ### 🔍 Discovery Engine (Projects Feed)
@@ -28,10 +37,12 @@ A highly sophisticated filtering system that allows users to traverse the global
 - **Dynamic View Modes:** Toggle between editorial Grid, detailed List, and technical Compact views.
 - **Metadata Transparency:** Every project card displays key technical data points (Location, Year, Area) at a glance.
 
-### 🌓 Intelligent Navbar (Theme Detection)
-The navigation system utilizes a sophisticated viewport-based detection algorithm to ensure 100% legibility across content transitions.
-- **Contrast Awareness:** Automatically switches between `light` (black text/blur) and `dark` (white text/glass) themes depending on the background brightness of the current section.
-- **Smooth Interpolation:** Transitions occur with calibrated easing to maintain the high-end feel.
+### 👤 Professional Profile System (`/profile/me`)
+A comprehensive identity management suite for architects.
+- **Contribution Heatmap:** A GitHub-inspired 52-week activity graph tracking structural contributions.
+- **Pinned Projects:** Showcase your finest work at the top of your profile.
+- **Specializations & Tools:** Display your technical stack (Revit, Rhino, Grasshopper) and architectural focus areas.
+- **Data Insights:** Track views, saves, and forks over time with dynamic charting.
 
 ### 📐 Project Detail Ecosystem
 A deep-dive interface designed for architectural scrutiny.
@@ -39,10 +50,13 @@ A deep-dive interface designed for architectural scrutiny.
 - **Interactive Gallery:** High-resolution asset viewer with staggered animations.
 - **Asset Vault:** A dedicated section for downloading blueprints, 3D models (DWG/ZIP), and high-fidelity renders.
 
-### 🎨 Design Motif & Aesthetics
-- **Hex Motif:** A recurring hexagonal grid (the Hive) representing structural stability and collective intelligence.
-- **Custom Cursor:** A gold hexagonal tracking element that adds a layer of interactivity to the desktop experience.
-- **Premium Typography:** A curated hierarchy featuring *Cinzel* for monumental headers and *Cormorant Garamond* for editorial elegance.
+### 🌓 Intelligent Navbar (Theme Detection)
+The navigation system utilizes a sophisticated viewport-based detection algorithm to ensure 100% legibility.
+- **Contrast Awareness:** Automatically switches between `light` and `dark` themes depending on the background brightness of the current section.
+
+### 🛡️ Secure Session Management
+- **Danger Zone:** Protocols for secure session termination (Logout) and permanent account deletion with double-confirmation modals.
+- **Persistent Auth:** Session persistence using `localStorage` integrated with dynamic routing.
 
 ---
 
@@ -54,12 +68,10 @@ A deep-dive interface designed for architectural scrutiny.
 | **Primary BG** | `#F5F3EF` | Main off-white canvas/editorial sections |
 | **Dark BG** | `#0E0E0C` | Hero sections and footer |
 | **Accent Gold** | `#C8A96A` | Brand identity, icons, and primary CTAs |
-| **Accent Dim** | `#A8894A` | Hover states and secondary indicators |
 | **Text Primary**| `#1A1A1A` | High-contrast body copy |
-| **Text Muted** | `#6B6860` | Editorial descriptions and labels |
 
 ### Typography Hierarchy
-- **H1 - H2:** `Cinzel` (Monumental, Structural Serif)
+- **H1 - H2:** `Cinzel` (Monumental Structural Serif)
 - **H3 - H4:** `Cormorant Garamond` (Elegant Editorial Serif)
 - **Body:** `DM Sans` (Clean Modern Sans-Serif)
 - **Data/UI:** `Space Mono` (Technical Monospace)
@@ -69,20 +81,20 @@ A deep-dive interface designed for architectural scrutiny.
 ## 🚀 Technical Architecture
 
 ### Stack Components
-- **Framework:** [React 19](https://react.dev/) (Modern hook-based architecture)
-- **Build Tool:** [Vite](https://vitejs.dev/) (Ultra-fast HMR and bundling)
-- **Styling:** [Tailwind CSS 3](https://tailwindcss.com/) (Using a custom design system token map)
-- **Animation Engine:** [Framer Motion](https://www.framer.com/motion/) (Hardware-accelerated transitions)
-- **Iconography:** [Lucide React](https://lucide.dev/) (Semantic SVG icons)
+- **Framework:** React 19
+- **Build Tool:** Vite
+- **Styling:** Tailwind CSS 3
+- **Animation Engine:** Framer Motion (Hardware-accelerated)
+- **Iconography:** Lucide React
 
 ### Directory Structure
 ```text
 src/
 ├── components/     # Reusable UI elements (Navbar, HexPattern, etc.)
 ├── data/           # Mock data and project repositories
-├── pages/          # Full-page components (Home, Projects, ProjectDetail)
+├── pages/          # Full-page components (Home, Projects, Profile, Auth)
 ├── assets/         # Global styles and static resources
-└── App.jsx         # Root component with routing and global states
+└── App.jsx         # Root component with dynamic routing
 ```
 
 ---
@@ -105,17 +117,12 @@ src/
    npm run dev
    ```
 
-4. **Build for production:**
-   ```bash
-   npm run build
-   ```
-
 ---
 
-## 🛤️ Roadmap
-- [ ] **User Authentication:** Architecture profile management.
+## Tracks
+- [x] **User Authentication:** Architecture profile management.
+- [x] **Activity Heatmap:** Contribution tracking system.
 - [ ] **Design Forking:** Ability to create personal versions of public blueprints.
-- [ ] **Collaborative Annotations:** Live structural feedback on project renders.
 - [ ] **3D Viewer Integration:** Embedded Three.js viewer for DWG/OBJ assets.
 
 ---
