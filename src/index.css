@@ -26,14 +26,17 @@
     width: 8px;
   }
   ::-webkit-scrollbar-track {
-    background: var(--bg-dark);
+    background: rgba(0, 0, 0, 0.03);
   }
   ::-webkit-scrollbar-thumb {
     background: var(--accent-gold-dim);
-    border-radius: 4px;
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: content-box;
   }
   ::-webkit-scrollbar-thumb:hover {
     background: var(--accent-gold);
+    background-clip: content-box;
   }
 }
 

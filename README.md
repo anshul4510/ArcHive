@@ -3,9 +3,12 @@
 <div align="center">
   <img src="./public/image.png" alt="ArcHive Home" width="100%" style="border-radius: 12px; margin-bottom: 20px; border: 1px solid #C8A96A;" />
 
-| | | | |
-| :---: | :---: | :---: | :---: |
-| <img src="./public/image2.png" width="100%" style="border-radius: 8px; border: 1px solid #C8A96A;" /> | <img src="./public/image3.png" width="100%" style="border-radius: 8px; border: 1px solid #C8A96A;" /> | <img src="./public/image4.png" width="100%" style="border-radius: 8px; border: 1px solid #C8A96A;" /> | <img src="./public/image5.png" width="100%" style="border-radius: 8px; border: 1px solid #C8A96A;" /> |
+| | | |
+| :---: | :---: | :---: |
+| <img src="./public/image2.png" width="100%" style="border-radius: 8px; border: 1px solid #C8A96A;" /> | <img src="./public/image3.png" width="100%" style="border-radius: 8px; border: 1px solid #C8A96A;" /> | <img src="./public/image4.png" width="100%" style="border-radius: 8px; border: 1px solid #C8A96A;" /> |
+| **Editorial Feed** | **Project Detail** | **Repository Index** |
+| <img src="./public/image6.png" width="100%" style="border-radius: 8px; border: 1px solid #C8A96A;" /> | <img src="./public/image7.png" width="100%" style="border-radius: 8px; border: 1px solid #C8A96A;" /> | <img src="./public/image8.png" width="100%" style="border-radius: 8px; border: 1px solid #C8A96A;" /> |
+| **Studio Dashboard** | **Drafting Workspace** | **Auth Guard (Golden Lock)** |
 
   [![React](https://img.shields.io/badge/React-19.2-blue?logo=react)](https://react.dev/)
   [![Vite](https://img.shields.io/badge/Vite-8.0-purple?logo=vite)](https://vitejs.dev/)
@@ -31,6 +34,9 @@ ArcHive is an editorial-grade digital preservation platform designed as a **"Git
 *   **Case Study Ecosystem:** Deep-dives into structural innovations with metadata-rich technical sidebars.
 *   **Professional Identity:** Developer-inspired profiles featuring contribution heatmaps and technical stack displays.
 *   **Resource Vault:** Instant access to community-shared BIM families, DWG details, and material palettes.
+*   **ArcHive Studio:** A professional, "architectural IDE" for managing private drafting projects.
+*   **Security Protocols:** "Golden Lock" access control reserved for verified professional sessions.
+*   **Version Control:** Integrated commit history and semantic versioning for project iterations.
 *   **Context-Aware UI:** Intelligent theme detection that adapts navigation contrast based on viewport content.
 
 ---
@@ -85,6 +91,7 @@ The application will be available at `http://localhost:5173`.
 *   **Browsing Repository:** Navigate to `/repository` and use the tab system to switch between Case Studies and BIM Resources.
 *   **Profile Customization:** Navigate to `/profile/me` to view the activity heatmap and saved architectural assets.
 *   **Project Scrutiny:** Click on any project card to enter the detail view, where technical specs are displayed in the sidebar.
+*   **Drafting in Studio:** Visit `/studio` to manage your repositories, filter projects by status, and use the block-based editor to draft project pages.
 
 ---
 

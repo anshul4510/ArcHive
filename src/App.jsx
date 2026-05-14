@@ -12,6 +12,7 @@ import Profile from './pages/Profile';
 import Services from './pages/Services';
 import Repository from './pages/Repository';
 import About from './pages/About';
+import Studio from './pages/Studio';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Hexagon } from 'lucide-react';
 
@@ -85,6 +86,7 @@ const LoadingScreen = ({ onComplete }) => {
 const AppContent = () => {
   const location = useLocation();
   const isAuthPage = location.pathname === '/login' || location.pathname === '/signup';
+  const isStudioPage = location.pathname.startsWith('/studio');
 
   return (
     <>
@@ -100,11 +102,12 @@ const AppContent = () => {
           <Route path="/profile/:username?/:tab?" element={<Profile />} />
           <Route path="/services" element={<Services />} />
           <Route path="/repository" element={<Repository />} />
+          <Route path="/studio/*" element={<Studio />} />
           <Route path="/about" element={<About />} />
           <Route path="*" element={<Home />} />
         </Routes>
       </main>
-      {!isAuthPage && <Footer />}
+      {!isAuthPage && !isStudioPage && <Footer />}
     </>
   );
 };
