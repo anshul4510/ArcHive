@@ -5,8 +5,9 @@ import {
   Heart, Eye, ArrowUp, ArrowRight, Download,
   ChevronDown, Hexagon, Filter, PenTool, UploadCloud, ChevronRight
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import HexPattern from '../components/HexPattern';
+import { useUi } from '../context/UiContext';
 
 // --- MOCK DATA ---
 const caseStudies = [
@@ -145,9 +146,9 @@ const CaseStudiesTab = () => {
                   <span className="flex items-center"><Heart className="w-3 h-3 mr-1" /> {cs.saves}</span>
                   <span className="flex items-center"><ArrowUp className="w-3 h-3 mr-1" /> {cs.upvotes}</span>
                 </div>
-                <span className="font-sans text-[12px] font-medium text-accent-gold flex items-center group-hover:translate-x-1 transition-transform">
+                <Link to={`/repository/case-studies/${cs.id}`} className="font-sans text-[12px] font-medium text-accent-gold flex items-center group-hover:translate-x-1 transition-transform">
                   Read <ArrowRight className="w-3 h-3 ml-1" />
-                </span>
+                </Link>
               </div>
             </div>
           </motion.div>
@@ -176,9 +177,9 @@ const JournalsTab = () => (
           <blockquote className="font-editorial italic text-[18px] text-[#1A1A1A] border-l-2 border-accent-gold pl-4 mb-6">
             {journals[0].excerpt}
           </blockquote>
-          <button className="px-5 py-2.5 bg-[#111] text-accent-gold rounded font-sans text-[13px] font-medium hover:bg-accent-gold hover:text-[#111] transition-colors">
+          <Link to={`/repository/journals/${journals[0].id}`} className="inline-block px-5 py-2.5 bg-[#111] text-accent-gold rounded font-sans text-[13px] font-medium hover:bg-accent-gold hover:text-[#111] transition-colors">
             Read Article
-          </button>
+          </Link>
         </div>
         <div className="w-full md:w-[40%] aspect-[4/5] rounded-[8px] overflow-hidden order-1 md:order-2">
           <img src={journals[0].image} alt="Journal cover" className="w-full h-full object-cover" />
@@ -203,9 +204,9 @@ const JournalsTab = () => (
               </div>
               <h3 className="font-serif text-[24px] text-[#1A1A1A] leading-tight mb-3 group-hover:text-accent-gold transition-colors">{j.title}</h3>
               <p className="font-sans text-[14px] text-[#6B6860] leading-relaxed line-clamp-3 mb-4">{j.excerpt}</p>
-              <span className="font-sans text-[13px] font-medium text-[#1A1A1A] flex items-center group-hover:translate-x-1 transition-transform">
+              <Link to={`/repository/journals/${j.id}`} className="font-sans text-[13px] font-medium text-[#1A1A1A] flex items-center group-hover:translate-x-1 transition-transform">
                 Read Full Story <ArrowRight className="w-3.5 h-3.5 ml-1 text-accent-gold" />
-              </span>
+              </Link>
             </div>
           </div>
         ))}
@@ -253,6 +254,8 @@ const JournalsTab = () => (
 
 const ResourcesTab = () => {
   const [activeCat, setActiveCat] = useState('All');
+  const { openAuthPrompt, addToast } = useUi();
+  const isLoggedIn = !!localStorage.getItem('archive_auth');
   
   const filtered = resources.filter(res => activeCat === 'All' || res.category === activeCat);
 
@@ -321,10 +324,22 @@ const ResourcesTab = () => {
               </div>
 
               <div className="mt-auto flex gap-2">
-                <button className="flex-1 py-2 rounded flex items-center justify-center font-sans text-[12px] font-medium bg-[#F5F3EF] text-[#1A1A1A] hover:bg-accent-gold hover:text-[#111] transition-colors">
+                <button 
+                  onClick={() => {
+                    if (!isLoggedIn) openAuthPrompt('Sign in to download', 'Create your ArcHive account to download resources.');
+                    else addToast('Download started', 'success');
+                  }}
+                  className="flex-1 py-2 rounded flex items-center justify-center font-sans text-[12px] font-medium bg-[#F5F3EF] text-[#1A1A1A] hover:bg-accent-gold hover:text-[#111] transition-colors"
+                >
                   <Download className="w-3.5 h-3.5 mr-1.5" /> Download
                 </button>
-                <button className="w-8 h-8 flex items-center justify-center border border-[#C8A96A]/20 rounded text-[#6B6860] hover:text-accent-gold hover:border-accent-gold transition-colors">
+                <button 
+                  onClick={() => {
+                    if (!isLoggedIn) openAuthPrompt('Sign in to save', 'Create your ArcHive account to save resources.');
+                    else addToast('Saved to collection', 'success');
+                  }}
+                  className="w-8 h-8 flex items-center justify-center border border-[#C8A96A]/20 rounded text-[#6B6860] hover:text-accent-gold hover:border-accent-gold transition-colors"
+                >
                   <Heart className="w-4 h-4" />
                 </button>
               </div>
@@ -438,6 +453,8 @@ const ReferencesTab = () => {
 
 const Repository = () => {
   const [activeTab, setActiveTab] = useState('case-studies');
+  const { openAuthPrompt } = useUi();
+  const isLoggedIn = !!localStorage.getItem('archive_auth');
 
   const tabs = [
     { id: 'case-studies', label: 'Case Studies', icon: BookOpen, count: "2,847 items" },
@@ -584,7 +601,16 @@ const Repository = () => {
                 </div>
                 <h3 className="font-sans font-medium text-[16px] text-white mb-2">{item.title}</h3>
                 <p className="font-sans text-[13px] text-[#9B9790] mb-6 h-10">{item.desc}</p>
-                <Link to="/repository/submit" className="w-full py-2 bg-transparent border border-accent-gold text-accent-gold rounded font-sans text-[13px] hover:bg-accent-gold hover:text-[#111] transition-colors">
+                <Link 
+                  to="/studio/new" 
+                  onClick={(e) => {
+                    if (!isLoggedIn) {
+                      e.preventDefault();
+                      openAuthPrompt('Sign in to contribute', 'Create an account to share with the community.');
+                    }
+                  }}
+                  className="w-full py-2 bg-transparent border border-accent-gold text-accent-gold rounded font-sans text-[13px] hover:bg-accent-gold hover:text-[#111] transition-colors text-center"
+                >
                   Get Started
                 </Link>
               </div>

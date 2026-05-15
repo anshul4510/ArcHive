@@ -13,6 +13,7 @@ import Services from './pages/Services';
 import Repository from './pages/Repository';
 import About from './pages/About';
 import Studio from './pages/Studio';
+import ReaderPage from './pages/ReaderPage';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Hexagon } from 'lucide-react';
 
@@ -83,6 +84,8 @@ const LoadingScreen = ({ onComplete }) => {
   );
 };
 
+import OverlayRoot from './components/overlays/OverlayRoot';
+
 const AppContent = () => {
   const location = useLocation();
   const isAuthPage = location.pathname === '/login' || location.pathname === '/signup';
@@ -90,6 +93,7 @@ const AppContent = () => {
 
   return (
     <>
+      <OverlayRoot />
       <CustomCursor />
       {!isAuthPage && <Navbar />}
       <main className="min-h-screen">
@@ -102,6 +106,8 @@ const AppContent = () => {
           <Route path="/profile/:username?/:tab?" element={<Profile />} />
           <Route path="/services" element={<Services />} />
           <Route path="/repository" element={<Repository />} />
+          <Route path="/repository/case-studies/:id" element={<ReaderPage />} />
+          <Route path="/repository/journals/:id" element={<ReaderPage />} />
           <Route path="/studio/*" element={<Studio />} />
           <Route path="/about" element={<About />} />
           <Route path="*" element={<Home />} />

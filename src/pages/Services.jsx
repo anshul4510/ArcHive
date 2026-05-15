@@ -3,11 +3,13 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import { ChevronDown, ArrowRight, BookOpen, Layers, Monitor, Target, Link as LinkIcon, Database, Check } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import HexPattern from '../components/HexPattern';
+import { useUi } from '../context/UiContext';
 
 const Services = () => {
   const { scrollY } = useScroll();
   const parallaxY = useTransform(scrollY, [0, 1000], [0, 300]);
   const heroTextY = useTransform(scrollY, [0, 1000], [0, 200]);
+  const { openConsultation, openService } = useUi();
 
   // Framer Motion variants
   const staggerContainer = {
@@ -138,10 +140,10 @@ const Services = () => {
                 Explore Services
                 <ChevronDown className="w-5 h-5 ml-2 group-hover:translate-y-1 transition-transform" />
               </a>
-              <Link to="/contact" className="group border border-white/20 text-white px-8 py-4 rounded-buttons font-sans font-medium hover:border-accent-gold hover:text-accent-gold transition-all duration-300 flex items-center w-full sm:w-auto justify-center">
+              <button onClick={openConsultation} className="group border border-white/20 text-white px-8 py-4 rounded-buttons font-sans font-medium hover:border-accent-gold hover:text-accent-gold transition-all duration-300 flex items-center w-full sm:w-auto justify-center">
                 Book Consultation
                 <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-              </Link>
+              </button>
             </motion.div>
           </motion.div>
         </div>
@@ -205,9 +207,9 @@ const Services = () => {
                   ))}
                 </ul>
                 
-                <div className="font-sans font-medium text-[13px] text-accent-gold flex items-center group/link">
+                <button onClick={() => openService(service.title)} className="font-sans font-medium text-[13px] text-accent-gold flex items-center group/link mt-auto">
                   Learn More <ArrowRight className="w-3.5 h-3.5 ml-1.5 group-hover/link:translate-x-1.5 transition-transform duration-200" />
-                </div>
+                </button>
               </motion.div>
             ))}
           </div>
@@ -459,10 +461,10 @@ const Services = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-6">
-              <Link to="/contact" className="w-full sm:w-auto bg-accent-gold text-bg-dark px-10 py-4 rounded-buttons font-sans font-medium text-[16px] hover:bg-accent-gold-dim transition-all duration-300 flex items-center justify-center shadow-gold-glow">
+              <button onClick={openConsultation} className="w-full sm:w-auto bg-accent-gold text-bg-dark px-10 py-4 rounded-buttons font-sans font-medium text-[16px] hover:bg-accent-gold-dim transition-all duration-300 flex items-center justify-center shadow-gold-glow">
                 Book Free Consultation
                 <ArrowRight className="w-5 h-5 ml-2" />
-              </Link>
+              </button>
               <Link to="/projects" className="w-full sm:w-auto border border-white/20 text-white px-10 py-4 rounded-buttons font-sans font-medium text-[16px] hover:border-accent-gold hover:text-accent-gold transition-all duration-300 flex items-center justify-center">
                 Browse Projects
               </Link>

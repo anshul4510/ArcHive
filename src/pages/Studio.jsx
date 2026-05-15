@@ -7,14 +7,25 @@ import {
   ChevronDown, ChevronRight, X, File as FileIcon, Image as ImageIcon, Box, 
   Upload, MoreHorizontal, Share, Download, Copy, ChevronLeft, Trash2, 
   ArrowRight, LayoutList, Lock, PenTool, Edit3, LockOpen, AlignLeft,
-  AlignCenter, AlignRight, FileDown, Edit, ArrowUp, ArrowDown, Users, MapPin
+  AlignCenter, AlignRight, FileDown, Edit, ArrowUp, ArrowDown, Users, MapPin, Check,
+  Building2, Ruler, BookOpen, Package, Link2
 } from 'lucide-react';
+
+export const TYPE_COLORS = {
+  'Project': { icon: <Building2 className="w-3 h-3" />, color: '#C8A96A', bg: 'rgba(200,169,106,0.1)', border: 'rgba(200,169,106,0.3)' },
+  'Case Study': { icon: <Ruler className="w-3 h-3" />, color: '#38b4b4', bg: 'rgba(56,180,180,0.1)', border: 'rgba(56,180,180,0.3)' },
+  'Journal': { icon: <BookOpen className="w-3 h-3" />, color: '#c8a03c', bg: 'rgba(200,160,60,0.1)', border: 'rgba(200,160,60,0.3)' },
+  'Resource': { icon: <Package className="w-3 h-3" />, color: '#3882dc', bg: 'rgba(56,130,220,0.1)', border: 'rgba(56,130,220,0.3)' },
+  'Reference': { icon: <Link2 className="w-3 h-3" />, color: '#888888', bg: 'rgba(136,136,136,0.1)', border: 'rgba(136,136,136,0.3)' }
+};
 
 // --- MOCK DATA ---
 const REPOS = [
-  { id: '1', name: 'the-meridian-residence', title: 'The Meridian Residence', visibility: 'Public', status: 'Published', type: 'Residential', typeIcon: '⬡', lastEdit: '2d ago', commits: 3, collaborators: 2, files: { pdf: 4, img: 12, dwg: 2 } },
-  { id: '2', name: 'kochi-cultural-centre', title: 'Kochi Cultural Centre', visibility: 'Private', status: 'Draft', type: 'Commercial', typeIcon: 'lock', lastEdit: '1w ago', commits: 12, collaborators: 0, files: { pdf: 2, img: 5, dwg: 1 } },
-  { id: '3', name: 'villa-nova-parametric', title: 'Villa Nova Facade', visibility: 'Public', status: 'Published', type: 'Research', typeIcon: 'fork', lastEdit: '3h ago', commits: 45, collaborators: 4, files: { pdf: 0, img: 8, dwg: 4 } }
+  { id: '1', name: 'the-meridian-residence', title: 'The Meridian Residence', visibility: 'Public', status: 'Published', repoType: 'Project', lastEdit: '2d ago', commits: 3, collaborators: 2, files: { pdf: 4, img: 12, dwg: 2 } },
+  { id: '2', name: 'desert-cooling-strategies', title: 'Desert Cooling Strategies', visibility: 'Public', status: 'Published', repoType: 'Case Study', lastEdit: '1w ago', commits: 12, collaborators: 0, files: { pdf: 2, img: 5, dwg: 1 } },
+  { id: '3', name: 'future-of-timber', title: 'The Future of Mass Timber', visibility: 'Private', status: 'Draft', repoType: 'Journal', lastEdit: '3h ago', commits: 45, collaborators: 4, files: { pdf: 0, img: 8, dwg: 0 } },
+  { id: '4', name: 'res-bim-families', title: 'Residential BIM Families', visibility: 'Public', status: 'Published', repoType: 'Resource', lastEdit: '2w ago', commits: 2, collaborators: 0, files: { pdf: 1, img: 2, dwg: 15 } },
+  { id: '5', name: 'ibc-2024', title: 'International Building Code 2024', visibility: 'Public', status: 'Published', repoType: 'Reference', lastEdit: '1m ago', commits: 1, collaborators: 0, files: { pdf: 1, img: 0, dwg: 0 } }
 ];
 
 const FILE_GROUPS = [
@@ -43,6 +54,7 @@ const Dashboard = () => {
     if (activeFilter === 'Drafts') return repo.status === 'Draft';
     if (activeFilter === 'Published') return repo.status === 'Published';
     if (activeFilter === 'Private') return repo.visibility === 'Private';
+    if (['Project', 'Case Study', 'Journal', 'Resource', 'Reference'].includes(activeFilter)) return repo.repoType === activeFilter;
     return true;
   });
   
@@ -118,20 +130,34 @@ const Dashboard = () => {
 
           <div className="my-4 mx-5 h-[0.5px] bg-[#C8A96A]/40"></div>
 
-          <div className="px-5 font-mono text-[10px] text-gray-400 uppercase tracking-wider mb-2 mt-2">Quick Actions</div>
-          <div className="flex flex-col px-3">
+          <div className="px-5 font-mono text-[10px] text-gray-400 uppercase tracking-wider mb-2 mt-2">By Type</div>
+          <div className="flex flex-col">
             {[
-              { label: 'Upload Files', icon: <Upload className="w-3.5 h-3.5" /> },
-              { label: 'Templates', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
-              { label: 'Documentation', icon: <FileText className="w-3.5 h-3.5" /> }
+              { label: 'Projects', filter: 'Project', icon: <Building2 className="w-4 h-4" />, count: 12 },
+              { label: 'Case Studies', filter: 'Case Study', icon: <Ruler className="w-4 h-4" />, count: 5 },
+              { label: 'Journals', filter: 'Journal', icon: <BookOpen className="w-4 h-4" />, count: 4 },
+              { label: 'Resources', filter: 'Resource', icon: <Package className="w-4 h-4" />, count: 4 },
+              { label: 'References', filter: 'Reference', icon: <Link2 className="w-4 h-4" />, count: 3 }
             ].map((item, i) => (
-              <div key={i} className="flex items-center px-2 h-8 text-gray-500 hover:text-[#1A1A1A] cursor-pointer transition-colors font-sans text-[13px] gap-2">
-                {item.icon} {item.label}
+              <div 
+                key={i} 
+                onClick={() => setActiveFilter(item.filter)}
+                className={`flex items-center px-5 h-10 cursor-pointer transition-colors group ${activeFilter === item.filter ? 'bg-[#C8A96A]/[0.08] border-l-[3px] border-[#C8A96A] text-[#1A1A1A] font-medium' : 'text-gray-600 hover:bg-[#C8A96A]/[0.05] border-l-[3px] border-transparent'}`}
+              >
+                <div className={`mr-3 ${activeFilter === item.filter ? 'text-[#C8A96A]' : 'text-gray-400 group-hover:text-[#C8A96A]'}`}>{item.icon}</div>
+                <span className="font-sans text-[13px]">{item.label}</span>
+                {item.count && (
+                  <div className="ml-auto bg-[#C8A96A]/15 text-[#C8A96A] font-mono text-[10px] h-[18px] px-1.5 rounded-sm flex items-center">
+                    {item.count}
+                  </div>
+                )}
               </div>
             ))}
           </div>
 
           <div className="my-4 mx-5 h-[0.5px] bg-[#C8A96A]/40"></div>
+
+
 
           <div className="px-5 font-mono text-[10px] text-gray-400 uppercase tracking-wider mb-2 mt-2">Recent</div>
           <div className="flex flex-col px-3 gap-1">
@@ -186,10 +212,14 @@ const Dashboard = () => {
                 <Hexagon className="absolute -bottom-6 -right-6 w-[120px] h-[120px] text-[#C8A96A]/5 transition-transform group-hover:scale-110 pointer-events-none" />
                 
                 <div className="flex items-start justify-between relative z-10">
-                  <div className="w-6 h-6 flex items-center justify-center">
-                    {repo.typeIcon === '⬡' && <Hexagon className="w-5 h-5 text-[#C8A96A]" />}
-                    {repo.typeIcon === 'lock' && <Lock className="w-4 h-4 text-gray-400" />}
-                    {repo.typeIcon === 'fork' && <GitFork className="w-4 h-4 text-[#C8A96A]/70" />}
+                  <div className="flex items-center gap-2">
+                    <Hexagon className="w-5 h-5 text-[#C8A96A]" />
+                    {repo.repoType && TYPE_COLORS[repo.repoType] && (
+                      <div className="px-2 py-0.5 rounded-[4px] flex items-center gap-1.5 border font-mono text-[9px] uppercase tracking-wider" 
+                           style={{ backgroundColor: TYPE_COLORS[repo.repoType].bg, borderColor: TYPE_COLORS[repo.repoType].border, color: TYPE_COLORS[repo.repoType].color }}>
+                        {TYPE_COLORS[repo.repoType].icon} {repo.repoType}
+                      </div>
+                    )}
                   </div>
                   <div className={`px-2.5 py-0.5 rounded-full border font-sans text-[11px] font-medium tracking-wide flex items-center ${
                     repo.status === 'Published' ? 'bg-[#4A9A4A]/10 text-[#4A9A4A] border-[#4A9A4A]/30' :
@@ -206,7 +236,6 @@ const Dashboard = () => {
                 </p>
 
                 <div className="font-mono text-[11px] text-gray-400 mt-2.5 flex items-center gap-2 relative z-10">
-                  <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {repo.type}</span> &middot;
                   <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Last edited: {repo.lastEdit}</span> &middot;
                   <span className="flex items-center gap-1"><GitCommit className="w-3 h-3" /> {repo.commits} commits</span>
                 </div>
@@ -249,168 +278,274 @@ const Dashboard = () => {
 
 const Wizard = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0);
+  const [repoType, setRepoType] = useState('Project');
+  const [isPublishing, setIsPublishing] = useState(false);
+
+  const handlePublish = () => {
+    setIsPublishing(true);
+    setTimeout(() => {
+      navigate('/studio/repo-123'); // Redirects to workspace editor
+    }, 1500);
+  };
+
+  const stepsList = [
+    { num: 0, label: 'Repository Type', icon: <Box className="w-4 h-4" /> },
+    { num: 1, label: 'Basic Details', icon: <Hexagon className="w-4 h-4" /> },
+    { num: 2, label: 'Media Upload', icon: <ImageIcon className="w-4 h-4" /> },
+    { num: 3, label: 'Documentation', icon: <FileText className="w-4 h-4" /> },
+    { num: 4, label: 'Publish', icon: <ArrowUp className="w-4 h-4" /> },
+  ];
+
   return (
-    <div className="min-h-screen pt-[80px] bg-[#F5F3EF] flex flex-col items-center justify-center p-6 relative" data-navbar-theme="light">
+    <div className="min-h-screen pt-[80px] bg-[#F5F3EF] flex items-center justify-center p-6 relative" data-navbar-theme="light">
       <div className="absolute inset-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'103.92\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M30 0L60 17.32V51.96L30 69.28L0 51.96V17.32L30 0ZM30 103.92L60 86.6V51.96L30 69.28L0 86.6V103.92Z\' fill=\'none\' stroke=\'%23C8A96A\' stroke-width=\'1\'/%3E%3C/svg%3E")' }}></div>
       
-      <div className="w-full max-w-[720px] bg-white border border-[#C8A96A] rounded-[16px] shadow-xl relative z-10 flex flex-col">
-        {/* Stepper Header */}
-        <div className="flex items-center justify-center gap-4 pt-10 pb-6">
-          <div className="flex flex-col items-center gap-2">
-            <div className={`w-8 h-8 rounded-full border ${step >= 1 ? 'border-[#C8A96A] bg-[#C8A96A]/10 text-[#C8A96A]' : 'border-gray-300 text-gray-400'} flex items-center justify-center`}>
-              <Hexagon className="w-4 h-4" fill={step >= 1 ? "currentColor" : "none"} fillOpacity={0.2} />
+      {isPublishing ? (
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center justify-center p-10 bg-white border border-[#C8A96A] rounded-[16px] shadow-xl relative z-10">
+          <Hexagon className="w-16 h-16 text-[#C8A96A] animate-spin mb-6" />
+          <h2 className="font-serif text-[24px] text-[#1A1A1A]">Publishing Repository...</h2>
+          <p className="font-sans text-[14px] text-gray-500 mt-2">Setting up your workspace and finalizing assets.</p>
+        </motion.div>
+      ) : (
+        <div className="w-full max-w-[900px] h-[650px] bg-white border border-[#C8A96A]/20 rounded-[16px] shadow-xl relative z-10 flex overflow-hidden">
+          
+          {/* Left Sidebar Steps */}
+          <div className="w-[240px] bg-[#FAFAF8] border-r border-[#C8A96A]/15 flex flex-col shrink-0 p-6">
+            <h3 className="font-serif text-[18px] text-[#1A1A1A] mb-8">New Repository</h3>
+            <div className="flex flex-col relative space-y-6">
+              <div className="absolute left-4 top-4 bottom-8 w-[1px] bg-gray-200"></div>
+              {stepsList.map((s) => {
+                const isActive = step === s.num;
+                const isPassed = step > s.num;
+                return (
+                  <div key={s.num} className="flex items-start gap-4 relative z-10">
+                    <div className={`w-8 h-8 rounded-full border flex items-center justify-center bg-white transition-colors ${isActive ? 'border-[#C8A96A] text-[#C8A96A]' : isPassed ? 'border-green-500 text-green-500' : 'border-gray-200 text-gray-400'}`}>
+                      {isPassed ? <Check className="w-4 h-4" /> : s.icon}
+                    </div>
+                    <div className="flex flex-col pt-1">
+                      <span className={`font-sans text-[13px] font-medium ${isActive ? 'text-[#1A1A1A]' : 'text-gray-500'}`}>{s.label}</span>
+                      <span className="font-mono text-[10px] text-gray-400 mt-0.5">Step {s.num.toString().padStart(2, '0')}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <span className={`font-sans text-[11px] ${step >= 1 ? 'text-[#C8A96A]' : 'text-gray-400'}`}>Details</span>
           </div>
-          <div className={`w-16 border-t border-dashed ${step >= 2 ? 'border-[#C8A96A]' : 'border-gray-300'} -mt-4`}></div>
-          <div className="flex flex-col items-center gap-2">
-            <div className={`w-8 h-8 rounded-full border ${step >= 2 ? 'border-[#C8A96A] bg-[#C8A96A]/10 text-[#C8A96A]' : 'border-gray-300 text-gray-400'} flex items-center justify-center`}>
-              <Hexagon className="w-4 h-4" fill={step >= 2 ? "currentColor" : "none"} fillOpacity={0.2} />
-            </div>
-            <span className={`font-sans text-[11px] ${step >= 2 ? 'text-[#C8A96A]' : 'text-gray-400'}`}>Upload</span>
-          </div>
-          <div className={`w-16 border-t border-dashed ${step >= 3 ? 'border-[#C8A96A]' : 'border-gray-300'} -mt-4`}></div>
-          <div className="flex flex-col items-center gap-2">
-            <div className={`w-8 h-8 rounded-full border ${step >= 3 ? 'border-[#C8A96A] bg-[#C8A96A]/10 text-[#C8A96A]' : 'border-gray-300 text-gray-400'} flex items-center justify-center`}>
-              <Hexagon className="w-4 h-4" fill={step >= 3 ? "currentColor" : "none"} fillOpacity={0.2} />
-            </div>
-            <span className={`font-sans text-[11px] ${step >= 3 ? 'text-[#C8A96A]' : 'text-gray-400'}`}>Publish</span>
-          </div>
-        </div>
 
-        <div className="p-10 pt-4 flex-1">
-          {step === 1 && (
-            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-6">
-              <div className="text-center mb-4">
-                <h2 className="font-serif text-[24px] text-[#1A1A1A]">Create a New Repository</h2>
-                <p className="font-sans text-[14px] text-gray-500 mt-1">Set up your project's identity before uploading files.</p>
-              </div>
+          {/* Right Main Content */}
+          <div className="flex-1 flex flex-col bg-white">
+            <div className="p-10 flex-1 overflow-y-auto custom-scrollbar">
+              {/* STEP 0: Type Selection */}
+              {step === 0 && (
+                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-6">
+                  <div className="mb-2">
+                    <h2 className="font-serif text-[28px] text-[#1A1A1A]">Repository Type</h2>
+                    <p className="font-sans text-[14px] text-gray-500 mt-1">Choose the architectural format for this repository. This determines the editor blocks and public layout.</p>
+                  </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="font-sans text-[13px] font-medium text-[#1A1A1A]">Repository Name *</label>
-                <input type="text" placeholder="the-meridian-residence" className="h-11 border border-gray-300 rounded-[6px] px-3 font-mono text-[14px] text-[#1A1A1A] outline-none focus:border-[#C8A96A] focus:ring-1 focus:ring-[#C8A96A]" />
-                <span className="font-mono text-[11px] text-[#C8A96A] mt-1">archive.com/@anshul_arch/the-meridian-residence</span>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="font-sans text-[13px] font-medium text-[#1A1A1A]">Display Title *</label>
-                <input type="text" placeholder="The Meridian Residence" className="h-11 border border-gray-300 rounded-[6px] px-3 font-serif text-[16px] text-[#1A1A1A] outline-none focus:border-[#C8A96A] focus:ring-1 focus:ring-[#C8A96A]" />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="font-sans text-[13px] font-medium text-[#1A1A1A]">Short Description *</label>
-                <textarea rows="3" placeholder="Brief overview shown on project card..." className="border border-gray-300 rounded-[6px] p-3 font-sans text-[14px] text-[#1A1A1A] outline-none resize-none focus:border-[#C8A96A] focus:ring-1 focus:ring-[#C8A96A]" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-sans text-[13px] font-medium text-[#1A1A1A]">Category *</label>
-                  <select className="h-11 border border-gray-300 rounded-[6px] px-3 font-sans text-[14px] text-[#1A1A1A] outline-none bg-white">
-                    <option>Residential</option><option>Commercial</option><option>Urban Planning</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-sans text-[13px] font-medium text-[#1A1A1A]">Project Year</label>
-                  <input type="number" placeholder="2024" className="h-11 border border-gray-300 rounded-[6px] px-3 font-sans text-[14px] text-[#1A1A1A] outline-none" />
-                </div>
-              </div>
-              
-              <div className="flex justify-between items-center mt-6">
-                <button onClick={() => navigate('/studio')} className="font-sans text-[14px] text-gray-500 hover:text-[#1A1A1A] transition-colors">Cancel</button>
-                <button onClick={() => setStep(2)} className="bg-[#C8A96A] text-white font-sans text-[14px] font-bold px-6 h-11 rounded-[6px] hover:brightness-110 transition-all flex items-center gap-2">Continue <ArrowRight className="w-4 h-4" /></button>
-              </div>
-            </motion.div>
-          )}
+                  <div className="grid grid-cols-1 gap-4">
+                    {Object.entries(TYPE_COLORS).map(([type, data]) => (
+                      <div 
+                        key={type}
+                        onClick={() => setRepoType(type)}
+                        className={`p-4 border rounded-[8px] cursor-pointer transition-all flex items-start gap-4 ${repoType === type ? 'bg-[#C8A96A]/[0.08] border-[#C8A96A]' : 'bg-white border-gray-200 hover:border-[#C8A96A]/50'}`}
+                      >
+                        <div className="w-10 h-10 rounded-[6px] flex items-center justify-center shrink-0" style={{ backgroundColor: data.bg, color: data.color }}>
+                          {React.cloneElement(data.icon, { className: 'w-5 h-5' })}
+                        </div>
+                        <div>
+                          <h3 className="font-serif text-[16px] text-[#1A1A1A] mb-1">{type}</h3>
+                          <p className="font-sans text-[13px] text-gray-500">
+                            {type === 'Project' && 'Standard architectural project with full documentation and timeline.'}
+                            {type === 'Case Study' && 'In-depth analysis of a specific architectural problem and solution.'}
+                            {type === 'Journal' && 'Editorial content, articles, or research papers for publication.'}
+                            {type === 'Resource' && 'Downloadable assets, BIM families, or design templates.'}
+                            {type === 'Reference' && 'External links, reading lists, or curated code specifications.'}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
 
-          {step === 2 && (
-            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-6">
-              <div className="text-center mb-2">
-                <h2 className="font-serif text-[24px] text-[#1A1A1A]">Upload Your Project Files</h2>
-                <p className="font-sans text-[14px] text-gray-500 mt-1">Add everything you want to display on your project page.</p>
-              </div>
+              {/* STEP 1: Details */}
+              {step === 1 && (
+                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-6">
+                  <div className="mb-2">
+                    <h2 className="font-serif text-[28px] text-[#1A1A1A]">Basic Details</h2>
+                    <p className="font-sans text-[14px] text-gray-500 mt-1">Set up your project's identity.</p>
+                  </div>
 
-              <div className="border-2 border-dashed border-[#C8A96A]/40 bg-[#C8A96A]/[0.03] rounded-[12px] h-[180px] flex flex-col items-center justify-center gap-2 hover:border-[#C8A96A] hover:bg-[#C8A96A]/[0.07] transition-all cursor-pointer group">
-                <Upload className="w-10 h-10 text-[#C8A96A] group-hover:-translate-y-1 transition-transform" />
-                <span className="font-serif text-[16px] text-[#1A1A1A]">Drag & drop files here</span>
-                <span className="font-sans text-[13px] text-gray-500">or click to browse</span>
-                <span className="font-mono text-[10px] text-gray-400 mt-2">Supports: JPG, PNG, PDF, DWG, RVT, MP4 (Max 50MB)</span>
-              </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-sans text-[13px] font-medium text-[#1A1A1A]">Repository Name *</label>
+                    <input type="text" placeholder="the-meridian-residence" className="h-11 border border-gray-300 rounded-[6px] px-3 font-mono text-[14px] text-[#1A1A1A] outline-none focus:border-[#C8A96A] focus:ring-1 focus:ring-[#C8A96A]" />
+                    <span className="font-mono text-[11px] text-[#C8A96A] mt-1">archive.com/@anshul_arch/the-meridian-residence</span>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-sans text-[13px] font-medium text-[#1A1A1A]">Display Title *</label>
+                    <input type="text" placeholder="The Meridian Residence" className="h-11 border border-gray-300 rounded-[6px] px-3 font-serif text-[16px] text-[#1A1A1A] outline-none focus:border-[#C8A96A] focus:ring-1 focus:ring-[#C8A96A]" />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-sans text-[13px] font-medium text-[#1A1A1A]">Short Description *</label>
+                    <textarea rows="3" placeholder="Brief overview shown on project card..." className="border border-gray-300 rounded-[6px] p-3 font-sans text-[14px] text-[#1A1A1A] outline-none resize-none focus:border-[#C8A96A] focus:ring-1 focus:ring-[#C8A96A]" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="font-sans text-[13px] font-medium text-[#1A1A1A]">Category *</label>
+                      <select className="h-11 border border-gray-300 rounded-[6px] px-3 font-sans text-[14px] text-[#1A1A1A] outline-none bg-white focus:border-[#C8A96A] focus:ring-1 focus:ring-[#C8A96A]">
+                        <option>Residential</option><option>Commercial</option><option>Urban Planning</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="font-sans text-[13px] font-medium text-[#1A1A1A]">Project Year</label>
+                      <input type="number" placeholder="2024" className="h-11 border border-gray-300 rounded-[6px] px-3 font-sans text-[14px] text-[#1A1A1A] outline-none focus:border-[#C8A96A] focus:ring-1 focus:ring-[#C8A96A]" />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
 
-              <div className="flex justify-between items-center mt-6">
-                <button onClick={() => setStep(1)} className="font-sans text-[14px] text-gray-500 hover:text-[#1A1A1A] transition-colors">← Back</button>
-                <button onClick={() => setStep(3)} className="bg-[#C8A96A] text-white font-sans text-[14px] font-bold px-6 h-11 rounded-[6px] hover:brightness-110 transition-all flex items-center gap-2">Continue <ArrowRight className="w-4 h-4" /></button>
-              </div>
-            </motion.div>
-          )}
+              {/* STEP 2: Media */}
+              {step === 2 && (
+                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-6 h-full">
+                  <div className="mb-2">
+                    <h2 className="font-serif text-[28px] text-[#1A1A1A]">Media Upload</h2>
+                    <p className="font-sans text-[14px] text-gray-500 mt-1">Upload images, renders, and DWG files.</p>
+                  </div>
 
-          {step === 3 && (
-            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-6">
-              <div className="text-center mb-2">
-                <h2 className="font-serif text-[24px] text-[#1A1A1A]">Review & Publish</h2>
-              </div>
-              
-              <div className="flex gap-8">
-                <div className="flex-1 flex flex-col gap-2 border-r border-gray-100 pr-8">
-                  <span className="font-mono text-[11px] uppercase tracking-wider text-gray-500">How it appears</span>
-                  <div className="bg-white border border-gray-200 rounded-[12px] overflow-hidden shadow-sm">
-                    <div className="h-[120px] bg-gray-200 flex items-center justify-center text-gray-400">Cover Image</div>
-                    <div className="p-4">
-                      <div className="font-serif text-[16px] text-[#1A1A1A] mb-1">The Meridian Residence</div>
-                      <div className="font-sans text-[12px] text-gray-500 line-clamp-2">Brief overview shown on project card...</div>
+                  <div className="border-2 border-dashed border-[#C8A96A]/40 bg-[#C8A96A]/[0.02] rounded-[12px] flex-1 flex flex-col items-center justify-center gap-3 hover:border-[#C8A96A] hover:bg-[#C8A96A]/[0.05] transition-all cursor-pointer group min-h-[200px]">
+                    <Upload className="w-12 h-12 text-[#C8A96A] group-hover:-translate-y-1 transition-transform" />
+                    <span className="font-serif text-[18px] text-[#1A1A1A]">Drag & drop files here</span>
+                    <span className="font-sans text-[13px] text-gray-500">or click to browse</span>
+                    <span className="font-mono text-[10px] text-gray-400 mt-2 bg-white px-2 py-1 rounded">Supports: JPG, PNG, PDF, DWG, RVT, MP4 (Max 50MB)</span>
+                  </div>
+                  
+                  <div className="flex flex-col gap-2">
+                    <span className="font-mono text-[10px] uppercase text-gray-400 tracking-wider">Uploaded Files (0)</span>
+                    <div className="h-20 border border-gray-200 rounded-[8px] flex items-center justify-center bg-gray-50 text-gray-400 font-sans text-[12px]">
+                      No files uploaded yet.
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* STEP 3: Documentation */}
+              {step === 3 && (
+                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-6 h-full">
+                  <div className="mb-2">
+                    <h2 className="font-serif text-[28px] text-[#1A1A1A]">Documentation</h2>
+                    <p className="font-sans text-[14px] text-gray-500 mt-1">Draft your project's README using Markdown.</p>
+                  </div>
+
+                  <div className="flex-1 flex flex-col border border-gray-200 rounded-[8px] overflow-hidden">
+                    <div className="h-10 bg-gray-50 border-b border-gray-200 flex items-center px-3 gap-1">
+                      <button className="p-1.5 rounded hover:bg-gray-200 text-gray-600"><strong className="font-serif">B</strong></button>
+                      <button className="p-1.5 rounded hover:bg-gray-200 text-gray-600"><em className="font-serif">I</em></button>
+                      <div className="w-[1px] h-4 bg-gray-300 mx-1"></div>
+                      <button className="p-1.5 rounded hover:bg-gray-200 text-gray-600 font-mono text-[12px]">{'</>'}</button>
+                      <button className="p-1.5 rounded hover:bg-gray-200 text-gray-600"><ImageIcon className="w-3.5 h-3.5" /></button>
+                    </div>
+                    <textarea 
+                      className="flex-1 p-4 font-mono text-[13px] text-[#1A1A1A] outline-none resize-none"
+                      defaultValue="# Project Overview\n\nEnter your markdown documentation here..."
+                    ></textarea>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* STEP 4: Publish */}
+              {step === 4 && (
+                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-6">
+                  <div className="mb-4">
+                    <h2 className="font-serif text-[28px] text-[#1A1A1A]">Review & Publish</h2>
+                    <p className="font-sans text-[14px] text-gray-500 mt-1">Finalize repository settings before making it live.</p>
+                  </div>
+                  
+                  <div className="bg-gray-50 border border-gray-200 rounded-[12px] p-6 mb-4 flex gap-6">
+                    <div className="w-[120px] h-[120px] bg-gray-200 rounded-[8px] flex flex-col items-center justify-center text-gray-400">
+                      <ImageIcon className="w-8 h-8 mb-2" />
+                      <span className="font-mono text-[10px]">No Cover</span>
+                    </div>
+                    <div className="flex-1 flex flex-col justify-center">
+                      <h3 className="font-serif text-[20px] text-[#1A1A1A] mb-1">The Meridian Residence</h3>
+                      <p className="font-sans text-[13px] text-gray-500 line-clamp-2">Brief overview shown on project card...</p>
                       <div className="mt-3 flex gap-2">
-                        <span className="bg-gray-100 px-2 py-0.5 rounded font-sans text-[10px]">Residential</span>
+                        <span className="bg-white border border-gray-200 px-2 py-0.5 rounded font-sans text-[11px] text-gray-600">Residential</span>
+                        <span className="bg-white border border-gray-200 px-2 py-0.5 rounded font-sans text-[11px] text-gray-600">2024</span>
                       </div>
                     </div>
                   </div>
-                  <button onClick={() => setStep(1)} className="text-[#C8A96A] text-[12px] font-sans hover:underline self-start mt-2">✎ Go back and edit</button>
-                </div>
-                
-                <div className="flex-1 flex flex-col gap-6">
-                  <div className="flex flex-col gap-2">
-                    <span className="font-mono text-[11px] uppercase tracking-wider text-gray-500">Publish Options</span>
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input type="radio" name="publish" className="accent-[#C8A96A] w-4 h-4" defaultChecked />
-                      <span className="font-sans text-[14px] text-[#1A1A1A]">Publish Now</span>
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input type="radio" name="publish" className="accent-[#C8A96A] w-4 h-4" />
-                      <span className="font-sans text-[14px] text-[#1A1A1A]">Save as Draft</span>
-                    </label>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <span className="font-mono text-[11px] uppercase tracking-wider text-gray-500">Settings</span>
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input type="checkbox" className="accent-[#C8A96A] rounded w-4 h-4" defaultChecked />
-                      <span className="font-sans text-[14px] text-[#1A1A1A]">Allow comments</span>
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input type="checkbox" className="accent-[#C8A96A] rounded w-4 h-4" defaultChecked />
-                      <span className="font-sans text-[14px] text-[#1A1A1A]">Allow forks</span>
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input type="checkbox" className="accent-[#C8A96A] rounded w-4 h-4" />
-                      <span className="font-sans text-[14px] text-[#1A1A1A]">Allow downloads</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
 
-              <div className="mt-4 pt-6 border-t border-gray-100 flex flex-col gap-3">
-                <button onClick={() => navigate('/studio/1')} className="w-full bg-[#C8A96A] text-white font-serif text-[16px] font-bold h-12 rounded-[6px] hover:brightness-110 transition-all flex items-center justify-center gap-2">
-                  <Hexagon className="w-4 h-4" /> Publish Repository
+                  <div className="grid grid-cols-2 gap-8">
+                    <div className="flex flex-col gap-3">
+                      <span className="font-mono text-[11px] uppercase tracking-wider text-[#C8A96A]">Visibility</span>
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input type="radio" name="vis" className="accent-[#C8A96A] w-4 h-4" defaultChecked />
+                        <span className="font-sans text-[14px] text-[#1A1A1A]">Public (Community)</span>
+                      </label>
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input type="radio" name="vis" className="accent-[#C8A96A] w-4 h-4" />
+                        <span className="font-sans text-[14px] text-[#1A1A1A]">Private (Only me)</span>
+                      </label>
+                    </div>
+                    
+                    <div className="flex flex-col gap-3">
+                      <span className="font-mono text-[11px] uppercase tracking-wider text-[#C8A96A]">Permissions</span>
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" className="accent-[#C8A96A] rounded w-4 h-4" defaultChecked />
+                        <span className="font-sans text-[14px] text-[#1A1A1A]">Allow forks</span>
+                      </label>
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" className="accent-[#C8A96A] rounded w-4 h-4" defaultChecked />
+                        <span className="font-sans text-[14px] text-[#1A1A1A]">Allow comments</span>
+                      </label>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="h-[80px] border-t border-gray-200 px-10 flex items-center justify-between shrink-0">
+              <button 
+                onClick={() => step > 0 ? setStep(step - 1) : navigate('/studio')} 
+                className="font-sans text-[14px] text-gray-500 hover:text-[#1A1A1A] transition-colors font-medium"
+              >
+                {step > 0 ? '← Back' : 'Cancel'}
+              </button>
+              
+              {step < 4 ? (
+                <button 
+                  onClick={() => setStep(step + 1)} 
+                  className="bg-[#1A1A1A] text-white font-sans text-[14px] font-bold px-8 h-11 rounded-[6px] hover:bg-[#C8A96A] transition-colors flex items-center gap-2"
+                >
+                  Continue <ArrowRight className="w-4 h-4" />
                 </button>
-                <button onClick={() => navigate('/studio')} className="w-full text-gray-500 font-sans text-[14px] h-10 hover:bg-gray-50 rounded-[6px] transition-colors">
-                  Save as Draft
+              ) : (
+                <button 
+                  onClick={handlePublish} 
+                  className="bg-[#C8A96A] text-white font-serif text-[16px] font-bold px-8 h-11 rounded-[6px] hover:brightness-110 transition-all shadow-[0_4px_14px_rgba(200,169,106,0.3)] flex items-center gap-2"
+                >
+                  <Hexagon className="w-4 h-4" /> Publish to Studio
                 </button>
-              </div>
-            </motion.div>
-          )}
+              )}
+            </div>
+          </div>
+          
         </div>
-      </div>
+      )}
     </div>
   );
 };
 
 const Workspace = () => {
   const { repoId } = useParams();
+  // Find repo or default to first
+  const repo = REPOS.find(r => r.id === repoId) || REPOS[0];
+  const type = repo.repoType || 'Project';
+
   const [activeTab, setActiveTab] = useState('files');
   const [inspectorTab, setInspectorTab] = useState('Block');
   const [viewMode, setViewMode] = useState('edit');
@@ -433,10 +568,14 @@ const Workspace = () => {
         <div className="flex items-center gap-4">
           <Link to="/studio" className="font-mono text-[10px] text-gray-400 hover:text-[#C8A96A] flex items-center gap-1 uppercase tracking-widest"><ChevronLeft className="w-3 h-3" /> Dashboard</Link>
           <div className="w-[1px] h-3 bg-gray-200"></div>
-          <div className="font-mono text-[11px] flex items-center gap-1.5 uppercase tracking-wide">
-            <span className="text-gray-400">Project</span>
+          <div className="font-mono text-[11px] flex items-center gap-2 tracking-wide">
+            {TYPE_COLORS[type] && (
+              <span className="flex items-center gap-1 uppercase" style={{ color: TYPE_COLORS[type].color }}>
+                {TYPE_COLORS[type].icon} {type}
+              </span>
+            )}
             <span className="text-gray-300">/</span>
-            <span className="text-[#C8A96A] font-bold">the-meridian-residence</span>
+            <span className="text-[#1A1A1A] font-bold">{repo.name}</span>
           </div>
         </div>
         <div className="flex items-center gap-6">
@@ -534,7 +673,7 @@ const Workspace = () => {
             <div className="flex items-center gap-2 font-mono text-[12px]">
               <span className="text-gray-400">Overview</span>
               <ChevronRight className="w-3 h-3 text-gray-300" />
-              <span className="text-[#C8A96A]">Project Page</span>
+              <span className="text-[#C8A96A]">{type} Page</span>
             </div>
             <div className="flex items-center bg-gray-100 p-0.5 rounded-full">
               <button 
@@ -555,36 +694,63 @@ const Workspace = () => {
           <div className="flex-1 overflow-y-scroll p-10 flex justify-center custom-scrollbar">
             <div className="w-full max-w-[800px] flex flex-col gap-6 pb-20">
               
-              {/* Dummy Canvas Blocks */}
-              <div className="group relative" onClick={() => setSelectedBlock('text1')}>
-                <div className={`absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 cursor-grab p-1 text-gray-400`}>⠿</div>
-                <div className={`p-4 transition-all ${selectedBlock === 'text1' ? 'ring-2 ring-blue-400 rounded-md bg-white shadow-sm' : 'border border-transparent'}`}>
-                  <h1 className="font-serif text-[42px] text-[#1A1A1A] leading-tight">The Meridian Residence</h1>
-                  <p className="font-sans text-[18px] text-gray-600 mt-4 leading-relaxed">A contemporary exploration of light and monolithic forms, situated on the edge of the coastal cliffs.</p>
-                </div>
-              </div>
+              {type === 'Project' && (
+                <>
+                  <div className="group relative" onClick={() => setSelectedBlock('text1')}>
+                    <div className={`absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 cursor-grab p-1 text-gray-400`}>⠿</div>
+                    <div className={`p-4 transition-all ${selectedBlock === 'text1' ? 'ring-2 ring-blue-400 rounded-md bg-white shadow-sm' : 'border border-transparent'}`}>
+                      <h1 className="font-serif text-[42px] text-[#1A1A1A] leading-tight">{repo.title}</h1>
+                      <p className="font-sans text-[18px] text-gray-600 mt-4 leading-relaxed">A contemporary exploration of light and monolithic forms, situated on the edge of the coastal cliffs.</p>
+                    </div>
+                  </div>
 
-              <div className="relative my-2 h-0.5 w-full bg-transparent flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                <div className="absolute w-full h-[1px] bg-[#C8A96A]"></div>
-                <button className="w-6 h-6 rounded-full bg-[#C8A96A] text-white flex items-center justify-center relative z-10"><Plus className="w-4 h-4" /></button>
-              </div>
+                  <div className="relative my-2 h-0.5 w-full bg-transparent flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                    <div className="absolute w-full h-[1px] bg-[#C8A96A]"></div>
+                    <button className="w-6 h-6 rounded-full bg-[#C8A96A] text-white flex items-center justify-center relative z-10"><Plus className="w-4 h-4" /></button>
+                  </div>
 
-              <div className="group relative" onClick={() => setSelectedBlock('img1')}>
-                <div className={`absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 cursor-grab p-1 text-gray-400`}>⠿</div>
-                <div className={`transition-all ${selectedBlock === 'img1' ? 'ring-2 ring-blue-400 rounded-md p-1 bg-white shadow-sm' : ''}`}>
-                  <img src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&q=80" className="w-full h-[400px] object-cover rounded-md" alt="hero" />
-                  <p className="font-sans text-[13px] text-gray-500 italic mt-2 text-center">View from the south cliff edge, sunset.</p>
-                </div>
-              </div>
+                  <div className="group relative" onClick={() => setSelectedBlock('img1')}>
+                    <div className={`absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 cursor-grab p-1 text-gray-400`}>⠿</div>
+                    <div className={`transition-all ${selectedBlock === 'img1' ? 'ring-2 ring-blue-400 rounded-md p-1 bg-white shadow-sm' : ''}`}>
+                      <img src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&q=80" className="w-full h-[400px] object-cover rounded-md" alt="hero" />
+                      <p className="font-sans text-[13px] text-gray-500 italic mt-2 text-center">View from the south cliff edge, sunset.</p>
+                    </div>
+                  </div>
+                </>
+              )}
 
-              <div className="group relative" onClick={() => setSelectedBlock('quote1')}>
-                <div className={`absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 cursor-grab p-1 text-gray-400`}>⠿</div>
-                <div className={`transition-all ${selectedBlock === 'quote1' ? 'ring-2 ring-blue-400 rounded-md p-1 shadow-sm bg-white' : ''}`}>
-                  <div className="bg-[#C8A96A]/[0.04] border-l-[4px] border-[#C8A96A] p-8 my-6">
-                    <p className="font-serif text-[24px] italic text-[#1A1A1A]">"Architecture should speak of its time and place, but yearn for timelessness."</p>
+              {type === 'Case Study' && (
+                <>
+                  <div className="group relative" onClick={() => setSelectedBlock('text1')}>
+                    <div className={`absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 cursor-grab p-1 text-gray-400`}>⠿</div>
+                    <div className={`p-4 transition-all ${selectedBlock === 'text1' ? 'ring-2 ring-blue-400 rounded-md bg-white shadow-sm' : 'border border-transparent'}`}>
+                      <span className="font-mono text-[12px] text-[#38b4b4] uppercase tracking-wider mb-4 block">Case Study Analysis</span>
+                      <h1 className="font-serif text-[42px] text-[#1A1A1A] leading-tight">{repo.title}</h1>
+                      <div className="flex gap-4 mt-6 border-y border-gray-200 py-4">
+                        <div className="flex flex-col">
+                          <span className="font-mono text-[10px] text-gray-400 uppercase">Location</span>
+                          <span className="font-sans text-[14px]">Dubai, UAE</span>
+                        </div>
+                        <div className="w-[1px] bg-gray-200"></div>
+                        <div className="flex flex-col">
+                          <span className="font-mono text-[10px] text-gray-400 uppercase">Climate</span>
+                          <span className="font-sans text-[14px]">Arid / Desert</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {['Resource', 'Reference', 'Journal'].includes(type) && (
+                <div className="group relative" onClick={() => setSelectedBlock('text1')}>
+                  <div className={`absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 cursor-grab p-1 text-gray-400`}>⠿</div>
+                  <div className={`p-4 transition-all ${selectedBlock === 'text1' ? 'ring-2 ring-blue-400 rounded-md bg-white shadow-sm' : 'border border-transparent'}`}>
+                    <h1 className="font-serif text-[42px] text-[#1A1A1A] leading-tight">{repo.title}</h1>
+                    <p className="font-sans text-[18px] text-gray-600 mt-4 leading-relaxed">Start drafting your {type.toLowerCase()} here...</p>
                   </div>
                 </div>
-              </div>
+              )}
 
             </div>
           </div>
@@ -606,13 +772,59 @@ const Workspace = () => {
             </div>
             
             <div className="flex-1 overflow-y-auto p-5">
-              {!selectedBlock && (
-                <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-3">
-                  <LayoutGrid className="w-8 h-8 opacity-50" />
-                  <p className="font-sans text-[13px] text-center">Select a block on the canvas to edit its properties.</p>
+              {inspectorTab === 'Page' && (
+                <div className="flex flex-col gap-6">
+                  {/* Type Lock Info */}
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-[8px]">
+                    <div className="flex items-center gap-2 mb-2 text-[#1A1A1A]">
+                      <Lock className="w-4 h-4" />
+                      <span className="font-serif text-[15px]">Type Lock Active</span>
+                    </div>
+                    <p className="font-sans text-[12px] text-gray-500 leading-relaxed">
+                      This repository is permanently locked as a <strong>{type}</strong>. 
+                      This prevents breaking routing changes for public URLs post-publication.
+                    </p>
+                  </div>
+
+                  {/* Type-adaptive metadata */}
+                  <div className="flex flex-col gap-3">
+                    <h4 className="font-mono text-[10px] uppercase text-gray-400 tracking-wider">Repository Metadata</h4>
+                    
+                    <div className="flex flex-col gap-1.5">
+                      <label className="font-sans text-[12px] text-gray-600">Title</label>
+                      <input type="text" defaultValue={repo.title} className="w-full h-8 border border-gray-200 rounded px-2 font-sans text-[13px] outline-none" />
+                    </div>
+
+                    {type === 'Project' && (
+                      <div className="flex flex-col gap-1.5">
+                        <label className="font-sans text-[12px] text-gray-600">Site Area (sqm)</label>
+                        <input type="number" defaultValue="4500" className="w-full h-8 border border-gray-200 rounded px-2 font-sans text-[13px] outline-none" />
+                      </div>
+                    )}
+                    
+                    {type === 'Case Study' && (
+                      <div className="flex flex-col gap-1.5">
+                        <label className="font-sans text-[12px] text-gray-600">Research Focus</label>
+                        <input type="text" defaultValue="Passive Cooling" className="w-full h-8 border border-gray-200 rounded px-2 font-sans text-[13px] outline-none" />
+                      </div>
+                    )}
+
+                    <div className="flex flex-col gap-1.5 mt-2">
+                      <label className="font-sans text-[12px] text-gray-600">Tags</label>
+                      <input type="text" placeholder="Add tags separated by commas" className="w-full h-8 border border-gray-200 rounded px-2 font-sans text-[13px] outline-none" />
+                    </div>
+                  </div>
                 </div>
               )}
-              {selectedBlock === 'text1' && (
+
+              {inspectorTab === 'Block' && !selectedBlock && (
+                <div className="flex flex-col items-center justify-center h-[200px] text-gray-400 gap-3">
+                  <LayoutGrid className="w-8 h-8 opacity-50" />
+                  <p className="font-sans text-[13px] text-center px-4">Select a block on the canvas to edit its properties.</p>
+                </div>
+              )}
+
+              {inspectorTab === 'Block' && selectedBlock === 'text1' && (
                 <div className="flex flex-col gap-5">
                   <div>
                     <label className="font-mono text-[10px] text-gray-400 uppercase tracking-wider mb-2 block">Text Style</label>
@@ -633,7 +845,8 @@ const Workspace = () => {
                   </div>
                 </div>
               )}
-              {selectedBlock === 'img1' && (
+
+              {inspectorTab === 'Block' && selectedBlock === 'img1' && (
                 <div className="flex flex-col gap-5">
                   <div>
                     <label className="font-mono text-[10px] text-gray-400 uppercase tracking-wider mb-2 block">Image Size</label>

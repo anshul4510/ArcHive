@@ -4,6 +4,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Search, ChevronDown, Grid, List, Columns, Heart, ArrowUp, X, Hexagon, Filter, MapPin, Eye, Calendar, ArrowRight, ChevronRight } from 'lucide-react';
 import HexPattern from '../components/HexPattern';
 import { mockProjects } from '../data/mockProjects';
+import { useUi } from '../context/UiContext';
 
 const categories = ['All', 'Residential', 'Commercial', 'Urban Planning', 'Interior', 'Landscape', 'Heritage', 'Mixed-Use'];
 const sortOptions = ['Top Rated', 'Newest First', 'Oldest First', 'Trending', 'Most Saved', 'Recently Updated'];
@@ -18,6 +19,15 @@ const Projects = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
+  const { openAuthPrompt } = useUi();
+  const isLoggedIn = !!localStorage.getItem('archive_auth');
+
+  const handleUploadClick = (e) => {
+    if (!isLoggedIn) {
+      e.preventDefault();
+      openAuthPrompt('Sign in to upload your design', 'Create your ArcHive account to start publishing your architecture projects.');
+    }
+  };
 
   useEffect(() => {
     if (location.state && location.state.category) {
@@ -192,8 +202,9 @@ const Projects = () => {
             </div>
 
             <Link 
-              to="/projects/upload"
-              className="bg-accent-gold text-bg-dark px-5 py-2 rounded-buttons text-sm font-medium font-sans hover:shadow-gold-glow transition-all flex items-center group overflow-hidden relative"
+              to="/studio/new"
+              onClick={handleUploadClick}
+              className="border border-accent-gold text-accent-gold hover:bg-accent-gold hover:text-bg-dark px-5 py-2 rounded-buttons text-sm font-medium font-sans hover:shadow-gold-glow transition-all flex items-center group overflow-hidden relative"
             >
               <span className="relative z-10">+ Upload Design</span>
               <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
@@ -294,19 +305,64 @@ const Projects = () => {
 };
 
 const ProjectCard = ({ project, viewMode, navigate, variants }) => {
-  const [upvoted, setUpvoted] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [upvotes, setUpvotes] = useState(project.stats.upvotes);
+  const { openAuthPrompt, addToast } = useUi();
+  const isLoggedIn = !!localStorage.getItem('archive_auth');
+  
+  // Initialize from localStorage if exists
+  const getInitialUpvotes = () => {
+    const stored = JSON.parse(localStorage.getItem('archive_upvotes') || '[]');
+    return stored.includes(project.id);
+  };
+  
+  const getInitialSaves = () => {
+    const stored = JSON.parse(localStorage.getItem('archive_saves') || '{}');
+    return !!stored[project.id];
+  };
+
+  const [upvoted, setUpvoted] = useState(getInitialUpvotes());
+  const [saved, setSaved] = useState(getInitialSaves());
+  const [upvotes, setUpvotes] = useState(project.stats.upvotes + (getInitialUpvotes() ? 1 : 0));
 
   const handleUpvote = (e) => {
     e.stopPropagation();
-    setUpvoted(!upvoted);
-    setUpvotes(prev => upvoted ? prev - 1 : prev + 1);
+    if (!isLoggedIn) {
+      openAuthPrompt('Sign in to upvote', 'Create your ArcHive account to upvote projects.');
+      return;
+    }
+    
+    const newVal = !upvoted;
+    setUpvoted(newVal);
+    setUpvotes(prev => newVal ? prev + 1 : prev - 1);
+    
+    // Persist
+    const stored = JSON.parse(localStorage.getItem('archive_upvotes') || '[]');
+    if (newVal) {
+      localStorage.setItem('archive_upvotes', JSON.stringify([...stored, project.id]));
+    } else {
+      localStorage.setItem('archive_upvotes', JSON.stringify(stored.filter(id => id !== project.id)));
+    }
   };
 
   const handleSave = (e) => {
     e.stopPropagation();
-    setSaved(!saved);
+    if (!isLoggedIn) {
+      openAuthPrompt('Sign in to save', 'Create your ArcHive account to save projects to collections.');
+      return;
+    }
+    
+    const newVal = !saved;
+    setSaved(newVal);
+    
+    // Persist
+    const stored = JSON.parse(localStorage.getItem('archive_saves') || '{}');
+    if (newVal) {
+      stored[project.id] = 'Default Collection';
+      addToast('Saved to collection', 'success');
+    } else {
+      delete stored[project.id];
+      addToast('Removed from collection', 'info');
+    }
+    localStorage.setItem('archive_saves', JSON.stringify(stored));
   };
 
   if (viewMode === 'list') {

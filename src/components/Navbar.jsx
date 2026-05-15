@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Hexagon } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { Menu, X, Hexagon, User, Layout, Settings, LogOut } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [isDarkBg, setIsDarkBg] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userName, setUserName] = useState('Arch. Julian');
+  const [userHandle, setUserHandle] = useState('anshul_arch');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Auth Check
@@ -20,6 +23,7 @@ const Navbar = () => {
           const parsed = JSON.parse(authData);
           setIsLoggedIn(true);
           setUserName(parsed.name || 'User');
+          setUserHandle(parsed.handle || 'anshul_arch');
         } catch(e) {
           setIsLoggedIn(false);
         }
@@ -84,6 +88,13 @@ const Navbar = () => {
   
   const btnBg = 'bg-accent-gold text-[#0E0E0C] hover:bg-accent-gold-dim';
 
+  const handleLogout = () => {
+    localStorage.removeItem('archive_auth');
+    setIsLoggedIn(false);
+    setDropdownOpen(false);
+    navigate('/login');
+  };
+
   return (
     <>
       <header
@@ -124,12 +135,49 @@ const Navbar = () => {
                 </Link>
               );
             })}
-            <Link 
-              to={isLoggedIn ? '/profile' : '/login'}
-              className={`px-6 py-2.5 rounded-buttons font-sans font-medium text-sm transition-all duration-500 transform hover:scale-105 shadow-soft ${btnBg}`}
-            >
-              {isLoggedIn ? userName : 'Login / Sign Up'}
-            </Link>
+            {isLoggedIn ? (
+              <div className="relative">
+                <button 
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-transparent hover:border-accent-gold/30 transition-colors"
+                >
+                  <img src={`https://ui-avatars.com/api/?name=${userName}&background=C8A96A&color=0E0E0C`} alt="Avatar" className="w-8 h-8 rounded-full border border-accent-gold/50" />
+                  <span className={`font-sans text-[13px] font-medium ${textColor}`}>{userName}</span>
+                </button>
+                <AnimatePresence>
+                  {dropdownOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.97, y: 10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.97, y: 10 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute right-0 top-full mt-2 w-[170px] bg-white border border-accent-gold rounded-[10px] shadow-[0_8px_24px_rgba(0,0,0,0.1)] overflow-hidden z-50 flex flex-col py-1"
+                    >
+                      <Link to="/profile/me" onClick={() => setDropdownOpen(false)} className="h-9 px-4 flex items-center font-sans text-[13px] text-text-primary hover:bg-accent-gold/10 transition-colors">
+                        <User className="w-3.5 h-3.5 mr-2.5 text-accent-gold" /> My Profile
+                      </Link>
+                      <Link to="/studio" onClick={() => setDropdownOpen(false)} className="h-9 px-4 flex items-center font-sans text-[13px] text-text-primary hover:bg-accent-gold/10 transition-colors">
+                        <Layout className="w-3.5 h-3.5 mr-2.5 text-accent-gold" /> Studio
+                      </Link>
+                      <Link to="/profile/me/settings" onClick={() => setDropdownOpen(false)} className="h-9 px-4 flex items-center font-sans text-[13px] text-text-primary hover:bg-accent-gold/10 transition-colors">
+                        <Settings className="w-3.5 h-3.5 mr-2.5 text-accent-gold" /> Settings
+                      </Link>
+                      <div className="h-[1px] bg-border-light my-1" />
+                      <button onClick={handleLogout} className="h-9 px-4 flex items-center font-sans text-[13px] text-error hover:bg-error/10 transition-colors w-full text-left">
+                        <LogOut className="w-3.5 h-3.5 mr-2.5" /> Log Out
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ) : (
+              <Link 
+                to="/login"
+                className={`px-6 py-2.5 rounded-buttons font-sans font-medium text-sm transition-all duration-500 transform hover:scale-105 shadow-soft ${btnBg}`}
+              >
+                Login / Sign Up
+              </Link>
+            )}
           </nav>
 
           {/* Mobile Toggle */}

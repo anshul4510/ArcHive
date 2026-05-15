@@ -3,12 +3,14 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import { ChevronDown, ArrowRight, Hexagon, Globe, ArrowUpRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import HexPattern from '../components/HexPattern';
+import { useUi } from '../context/UiContext';
 
 const About = () => {
   const { scrollY } = useScroll();
   const heroY = useTransform(scrollY, [0, 1000], [0, 200]);
   const bgTextX = useTransform(scrollY, [0, 1500], [0, -300]);
   const rotateHex = useTransform(scrollY, [0, 1000], [0, 90]);
+  const { openConsultation } = useUi();
 
   // Framer Motion variants
   const staggerContainer = {
@@ -313,9 +315,9 @@ const About = () => {
                     <h3 className="font-serif text-[17px] text-white mb-1">We're Hiring</h3>
                     <p className="font-sans text-[13px] text-accent-gold mb-3">{member.role}</p>
                     <p className="font-mono text-[11px] text-[#9B9790] mb-4">We're building this together →</p>
-                    <Link to="/contact" className="mt-auto py-2 px-4 border border-accent-gold text-accent-gold rounded text-[13px] font-sans hover:bg-accent-gold hover:text-[#111] transition-colors">
-                      Join the Team
-                    </Link>
+                    <button onClick={openConsultation} className="mt-auto w-full py-2 px-4 border border-accent-gold text-accent-gold rounded text-[13px] font-sans hover:bg-accent-gold hover:text-[#111] transition-colors">
+                      Book Consultation
+                    </button>
                   </>
                 ) : (
                   <>

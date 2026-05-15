@@ -3,11 +3,13 @@ import { motion, useScroll, useTransform, useInView } from 'framer-motion';
 import { ChevronDown, ArrowRight, Layers, Home as HomeIcon, Map, Grid, Columns, Hexagon } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import HexBackground from '../components/HexBackground';
+import { useUi } from '../context/UiContext';
 
 const Home = () => {
   const navigate = useNavigate();
   const { scrollY } = useScroll();
   const heroY = useTransform(scrollY, [0, 1000], [0, 400]);
+  const { openConsultation } = useUi();
 
   // Framer Motion variants
   const staggerContainer = {
@@ -66,9 +68,9 @@ const Home = () => {
                 View Projects
                 <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
               </Link>
-              <Link to="/contact" className="group border border-surface text-surface px-8 py-4 rounded-buttons font-sans font-medium hover:bg-accent-gold hover:text-bg-dark hover:border-accent-gold transition-all duration-300">
+              <button onClick={openConsultation} className="group border border-surface text-surface px-8 py-4 rounded-buttons font-sans font-medium hover:bg-accent-gold hover:text-bg-dark hover:border-accent-gold transition-all duration-300">
                 Contact Us
-              </Link>
+              </button>
             </motion.div>
           </motion.div>
         </div>
@@ -236,7 +238,7 @@ const Home = () => {
               <span className="text-bg-primary/60 italic font-light">— Dubai, UAE</span>
             </h2>
             <div className="flex flex-col sm:flex-row justify-center items-center space-y-6 sm:space-y-0 sm:space-x-8">
-              <Link to="/projects/meridian" className="bg-surface text-bg-dark px-12 py-5 rounded-buttons font-sans font-medium hover:bg-accent-gold transition-all duration-300 text-lg shadow-elevated">
+              <Link to="/repository/case-studies/meridian" className="bg-surface text-bg-dark px-12 py-5 rounded-buttons font-sans font-medium hover:bg-accent-gold transition-all duration-300 text-lg shadow-elevated">
                 View Case Study
               </Link>
               <div className="flex items-center space-x-4 text-surface/60 font-mono text-xs uppercase tracking-widest">

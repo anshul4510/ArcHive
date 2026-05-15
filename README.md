@@ -9,6 +9,8 @@
 | **Editorial Feed** | **Project Detail** | **Repository Index** |
 | <img src="./public/image6.png" width="100%" style="border-radius: 8px; border: 1px solid #C8A96A;" /> | <img src="./public/image7.png" width="100%" style="border-radius: 8px; border: 1px solid #C8A96A;" /> | <img src="./public/image8.png" width="100%" style="border-radius: 8px; border: 1px solid #C8A96A;" /> |
 | **Studio Dashboard** | **Drafting Workspace** | **Auth Guard (Golden Lock)** |
+| <img src="./public/image9.png" width="100%" style="border-radius: 8px; border: 1px solid #C8A96A;" /> | <img src="./public/image10.png" width="100%" style="border-radius: 8px; border: 1px solid #C8A96A;" /> | |
+| **Type Selection Wizard** | **Unified Reader Actions** | |
 
   [![React](https://img.shields.io/badge/React-19.2-blue?logo=react)](https://react.dev/)
   [![Vite](https://img.shields.io/badge/Vite-8.0-purple?logo=vite)](https://vitejs.dev/)
@@ -34,10 +36,27 @@ ArcHive is an editorial-grade digital preservation platform designed as a **"Git
 *   **Case Study Ecosystem:** Deep-dives into structural innovations with metadata-rich technical sidebars.
 *   **Professional Identity:** Developer-inspired profiles featuring contribution heatmaps and technical stack displays.
 *   **Resource Vault:** Instant access to community-shared BIM families, DWG details, and material palettes.
-*   **ArcHive Studio:** A professional, "architectural IDE" for managing private drafting projects.
-*   **Security Protocols:** "Golden Lock" access control reserved for verified professional sessions.
+*   **ArcHive Studio:** A professional, "architectural IDE" for managing private drafting projects with type-specific templates.
+*   **Repository Content Types:** Five specialized formats (Project, Case Study, Journal, Resource, Reference) that determine UI layout and available editor blocks.
+*   **Type-Aware Wizard:** A 4-step repository creation flow that adapts its metadata fields and documentation prompts based on the selected content type.
+*   **Security Protocols:** "Golden Lock" access control reserved for verified professional sessions, with a dedicated authentication guard.
 *   **Version Control:** Integrated commit history and semantic versioning for project iterations.
 *   **Context-Aware UI:** Intelligent theme detection that adapts navigation contrast based on viewport content.
+*   **Editorial Reader:** A production-grade reading experience with scroll-linked progress bars, action consolidation, and social interaction guards.
+
+---
+
+## 📂 Content Type System
+
+ArcHive enforces a strict typology to ensure architectural data is indexed correctly. The content type is selected at creation and remains locked post-publication to maintain routing integrity.
+
+| Type | Icon | Purpose | Key Metadata |
+| :--- | :--- | :--- | :--- |
+| **Project** | `Building2` | Standard architectural documentation | Site Area, Floor Count, Budget |
+| **Case Study**| `Ruler` | Technical analysis & problem solving | Research Focus, Climate, Solutions |
+| **Journal** | `BookOpen` | Editorial articles & research papers | Peer Review Status, Publication Date |
+| **Resource** | `Package` | BIM families, CAD details, Templates | File Format, Software Version |
+| **Reference** | `LinkIcon` | Curated specifications & reading lists| Source URL, DOI, ISBN |
 
 ---
 
@@ -145,7 +164,11 @@ ArcHive/
 │   ├── pages/          # View Components
 │   │   ├── Home.jsx        # Landing page with parallax
 │   │   ├── Repository.jsx  # Multi-tab knowledge vault
-│   │   └── Profile.jsx     # User dashboard and heatmap
+│   │   ├── Profile.jsx     # User dashboard and heatmap
+│   │   ├── Studio.jsx      # Multi-step creation wizard & workspace
+│   │   └── ReaderPage.jsx  # High-fidelity editorial article view
+│   ├── context/        # Global State
+│   │   └── UiContext.jsx   # Auth prompts, toasts, and UI overrides
 │   ├── assets/         # Global Styling
 │   │   └── index.css       # Tailwind directives & Brand tokens
 │   └── App.jsx         # Root Router & Loading Logic

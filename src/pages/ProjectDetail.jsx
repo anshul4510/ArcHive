@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { mockProjects } from '../data/mockProjects';
 import HexPattern from '../components/HexPattern';
+import { useUi } from '../context/UiContext';
 
 const ProjectDetail = () => {
   const { id } = useParams();
@@ -19,10 +20,23 @@ const ProjectDetail = () => {
   const [upvoted, setUpvoted] = useState(false);
   const [saved, setSaved] = useState(false);
   
+  const { openAuthPrompt, addToast } = useUi();
+  const isLoggedIn = !!localStorage.getItem('archive_auth');
+
   // Modals state
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [showForkModal, setShowForkModal] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [isForking, setIsForking] = useState(false);
+
+  useEffect(() => {
+    if (project) {
+      const storedUpvotes = JSON.parse(localStorage.getItem('archive_upvotes') || '[]');
+      const storedSaves = JSON.parse(localStorage.getItem('archive_saves') || '{}');
+      setUpvoted(storedUpvotes.includes(project.id));
+      setSaved(!!storedSaves[project.id]);
+    }
+  }, [project]);
 
   useEffect(() => {
     setLoading(true);
@@ -266,11 +280,22 @@ const ProjectDetail = () => {
                 {project.category}
               </span>
               <button 
-                onClick={() => setUpvoted(!upvoted)}
+                onClick={() => {
+                  if (!isLoggedIn) {
+                    openAuthPrompt('Sign in to upvote', 'Create your ArcHive account to upvote projects.');
+                    return;
+                  }
+                  const newVal = !upvoted;
+                  setUpvoted(newVal);
+                  project.stats.upvotes += newVal ? 1 : -1;
+                  const stored = JSON.parse(localStorage.getItem('archive_upvotes') || '[]');
+                  if (newVal) localStorage.setItem('archive_upvotes', JSON.stringify([...stored, project.id]));
+                  else localStorage.setItem('archive_upvotes', JSON.stringify(stored.filter(id => id !== project.id)));
+                }}
                 className={`flex items-center px-3 py-1 border rounded-full font-sans text-xs transition-all ${upvoted ? 'bg-accent-gold text-bg-dark border-accent-gold' : 'border-accent-gold text-accent-gold hover:bg-accent-gold/10'}`}
               >
                 <ArrowUp className="w-3 h-3 mr-1.5" /> 
-                {upvoted ? 'Upvoted' : 'Upvote'} ({upvoted ? project.stats.upvotes + 1 : project.stats.upvotes})
+                {upvoted ? 'Upvoted' : 'Upvote'} ({project.stats.upvotes})
               </button>
             </div>
             
@@ -287,7 +312,13 @@ const ProjectDetail = () => {
             <div className="flex flex-wrap gap-4">
               <div className="relative">
                 <button 
-                  onClick={() => setShowSaveModal(!showSaveModal)}
+                  onClick={() => {
+                    if (!isLoggedIn) {
+                      openAuthPrompt('Sign in to save', 'Create your ArcHive account to save projects to collections.');
+                      return;
+                    }
+                    setShowSaveModal(!showSaveModal);
+                  }}
                   className={`flex items-center px-5 py-2.5 rounded-buttons font-sans text-sm font-medium transition-all ${saved ? 'bg-accent-gold text-bg-dark' : 'bg-surface border border-border-gold text-text-primary hover:border-accent-gold'}`}
                 >
                   <Heart className={`w-4 h-4 mr-2 ${saved ? 'fill-current' : ''}`} />
@@ -296,16 +327,39 @@ const ProjectDetail = () => {
                 </button>
                 {showSaveModal && (
                   <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-border-gold rounded-cards shadow-elevated z-50 p-2">
-                    <div className="p-2 font-sans text-sm hover:bg-surface rounded cursor-pointer" onClick={() => {setSaved(true); setShowSaveModal(false);}}>My Saves</div>
-                    <div className="p-2 font-sans text-sm hover:bg-surface rounded cursor-pointer" onClick={() => {setSaved(true); setShowSaveModal(false);}}>Inspiration Board</div>
+                    <div className="p-2 font-sans text-sm hover:bg-surface rounded cursor-pointer" onClick={() => {
+                      setSaved(true); 
+                      setShowSaveModal(false);
+                      const stored = JSON.parse(localStorage.getItem('archive_saves') || '{}');
+                      stored[project.id] = 'My Saves';
+                      localStorage.setItem('archive_saves', JSON.stringify(stored));
+                      addToast('Saved to My Saves', 'success');
+                    }}>My Saves</div>
+                    <div className="p-2 font-sans text-sm hover:bg-surface rounded cursor-pointer" onClick={() => {
+                      setSaved(true); 
+                      setShowSaveModal(false);
+                      const stored = JSON.parse(localStorage.getItem('archive_saves') || '{}');
+                      stored[project.id] = 'Inspiration Board';
+                      localStorage.setItem('archive_saves', JSON.stringify(stored));
+                      addToast('Saved to Inspiration Board', 'success');
+                    }}>Inspiration Board</div>
                     <hr className="my-1 border-border-gold" />
-                    <div className="p-2 font-sans text-sm text-accent-gold hover:bg-surface rounded cursor-pointer">+ Create New Collection</div>
+                    <div className="p-2 font-sans text-sm text-accent-gold hover:bg-surface rounded cursor-pointer" onClick={() => {
+                      setShowSaveModal(false);
+                      addToast('Collections feature coming soon', 'info');
+                    }}>+ Create New Collection</div>
                   </div>
                 )}
               </div>
               
               <button 
-                onClick={() => setShowForkModal(true)}
+                onClick={() => {
+                  if (!isLoggedIn) {
+                    openAuthPrompt('Sign in to fork', 'Create your ArcHive account to fork this project.');
+                    return;
+                  }
+                  setShowForkModal(true);
+                }}
                 className="flex items-center px-5 py-2.5 rounded-buttons font-sans text-sm font-medium bg-bg-dark text-accent-gold hover:shadow-gold-glow transition-all"
               >
                 <Hexagon className="w-4 h-4 mr-2" />
@@ -421,8 +475,22 @@ const ProjectDetail = () => {
               <h2 className="font-serif text-2xl text-white mb-4">Fork '{project.title}'?</h2>
               <p className="font-sans text-sm text-[#9B9790] mb-8">This creates an editable copy in your profile.</p>
               <div className="flex space-x-3">
-                <button onClick={() => setShowForkModal(false)} className="flex-1 py-3 border border-border-gold text-white rounded-buttons">Cancel</button>
-                <button className="flex-1 py-3 bg-accent-gold text-bg-dark font-sans font-medium rounded-buttons">Fork Project</button>
+                <button onClick={() => setShowForkModal(false)} disabled={isForking} className="flex-1 py-3 border border-border-gold text-white rounded-buttons disabled:opacity-50">Cancel</button>
+                <button 
+                  onClick={() => {
+                    setIsForking(true);
+                    setTimeout(() => {
+                      setIsForking(false);
+                      setShowForkModal(false);
+                      addToast('Project forked successfully!', 'success');
+                      navigate('/studio');
+                    }, 1500);
+                  }}
+                  disabled={isForking}
+                  className="flex-1 py-3 bg-accent-gold text-bg-dark font-sans font-medium rounded-buttons disabled:opacity-50 flex justify-center items-center"
+                >
+                  {isForking ? <Hexagon className="w-5 h-5 animate-spin" /> : 'Fork Project'}
+                </button>
               </div>
             </motion.div>
           </motion.div>
