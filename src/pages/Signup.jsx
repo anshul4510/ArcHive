@@ -1,19 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { Hexagon, Eye, EyeOff, Check, User, Building2, ArrowLeft, ArrowRight, AlertCircle } from 'lucide-react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
+
+const CONFETTI = [...Array(12)].map((_, i) => ({
+  id: i,
+  left: `${Math.random() * 100}%`,
+  animationDelay: `${Math.random() * 1}s`
+}));
 
 const Signup = () => {
-  const [step, setStep] = useState(1);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { signUp, signInGoogle, createFullProfile, checkUsername, firebaseUser } = useAuth();
+  const isGoogle = location.state?.googleUser === true;
+  const goTo = location.state?.from || '/projects';
+
+  const [step, setStep] = useState(isGoogle ? 2 : 1);
   const [direction, setDirection] = useState(1);
   const [isSuccess, setIsSuccess] = useState(false);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (localStorage.getItem('archive_auth')) {
-      navigate('/projects');
-    }
-  }, [navigate]);
+  // eslint-disable-next-line no-unused-vars
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [usernameStatus, setUsernameStatus] = useState(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -28,7 +38,46 @@ const Signup = () => {
     setFormData(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleNext = () => {
+  const [prevFirebaseUser, setPrevFirebaseUser] = useState(firebaseUser);
+
+  if (firebaseUser !== prevFirebaseUser) {
+    setPrevFirebaseUser(firebaseUser);
+    if (isGoogle && firebaseUser?.displayName) {
+      setFormData(prev => ({ ...prev, name: firebaseUser.displayName }));
+    }
+  }
+
+  useEffect(() => {
+    const check = async () => {
+      if (formData.handle.length < 3) {
+        setUsernameStatus(null);
+        return;
+      }
+      setUsernameStatus('checking');
+      const available = await checkUsername(formData.handle);
+      setUsernameStatus(available ? 'available' : 'taken');
+    };
+    const timeoutId = setTimeout(check, 500);
+    return () => clearTimeout(timeoutId);
+  }, [formData.handle, checkUsername]);
+
+  const handleNext = async () => {
+    if (step === 1) {
+      setIsLoading(true);
+      setError('');
+      const { error: signUpError } = await signUp(formData.email, formData.password);
+      setIsLoading(false);
+      if (signUpError) {
+        setError(signUpError);
+        return;
+      }
+    }
+    if (step === 2) {
+      if (usernameStatus !== 'available') {
+        setError('Choose an available username'); return;
+      }
+      setError('');
+    }
     setDirection(1);
     setStep(prev => Math.min(prev + 1, 3));
   };
@@ -38,21 +87,35 @@ const Signup = () => {
     setStep(prev => Math.max(prev - 1, 1));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSuccess(true);
-    // Mock save to localStorage
-    const mockAuth = {
-      name: formData.name || "Architect",
-      handle: formData.handle || "@new_user",
-      email: formData.email,
-      avatar: null,
-      role: formData.title || "Architect"
-    };
-    localStorage.setItem("archive_auth", JSON.stringify(mockAuth));
+    setIsLoading(true);
+    setError(null);
 
+    const { error: err } = await createFullProfile({
+      displayName: formData.name,
+      username: formData.handle,
+      title: formData.title,
+      organization: formData.studio,
+      locationCity: formData.location.split(',')[0]?.trim() || formData.location,
+      locationCountry: formData.location.split(',')[1]?.trim() || 'India',
+      yearsExp: formData.experience,
+      accountType: formData.accountType,
+      interests: formData.interests,
+      tools: formData.software,
+      websiteUrl: formData.url,
+    });
+
+    setIsLoading(false);
+
+    if (err) {
+      setError(err);
+      return;
+    }
+
+    setIsSuccess(true);
     setTimeout(() => {
-      navigate('/projects');
+      navigate(goTo, { replace: true });
     }, 2500);
   };
 
@@ -96,14 +159,15 @@ const Signup = () => {
     if (pass.match(/[A-Z]/) && pass.match(/[0-9]/)) return { label: 'Very Strong', color: 'bg-green-500', fill: 4 };
     return { label: 'Strong', color: 'bg-green-400', fill: 3 };
   };
+
   const passStr = getPasswordStrength(formData.password);
 
   if (isSuccess) {
     return (
       <div className="w-full max-w-[520px] bg-[#141311]/85 backdrop-blur-[24px] rounded-[16px] p-12 mx-auto border-[0.5px] border-[#C8A96A]/25 shadow-[0_32px_80px_rgba(0,0,0,0.5)] text-center relative overflow-hidden">
         {/* Confetti */}
-        {[...Array(12)].map((_, i) => (
-          <div key={i} className="absolute w-2 h-2 text-[#C8A96A] animate-fall" style={{ left: `${Math.random() * 100}%`, top: '-20px', animationDelay: `${Math.random() * 1}s` }}>
+        {CONFETTI.map((confetti) => (
+          <div key={confetti.id} className="absolute w-2 h-2 text-[#C8A96A] animate-fall" style={{ left: confetti.left, top: '-20px', animationDelay: confetti.animationDelay }}>
             <Hexagon className="w-full h-full fill-current" />
           </div>
         ))}
@@ -138,6 +202,7 @@ const Signup = () => {
         <AnimatePresence mode="wait" custom={direction}>
           
           {/* STEP 1 */}
+          {error && <div className="text-red-500 text-center mb-4">{error}</div>}
           {step === 1 && (
             <motion.div key="step1" custom={direction} variants={stepVariants} initial="initial" animate="active" exit="exit" className="space-y-5">
               <div className="text-center mb-6">
@@ -145,7 +210,16 @@ const Signup = () => {
                 <p className="font-sans text-[13px] text-[#6B6860]">Join the architectural community</p>
               </div>
 
-              <button className="w-full h-[46px] rounded-[8px] bg-white/5 border border-white/15 flex items-center justify-center space-x-2 font-sans font-medium text-[14px] text-[#F5F3EF] hover:bg-white/10 hover:border-white/25 transition-all duration-200">
+              <button 
+                onClick={async () => {
+                  const res = await signInGoogle();
+                  if (res?.isNew) {
+                    navigate('/signup', { state: { googleUser: true, from: goTo }, replace: true });
+                  } else if (!res?.error) {
+                    navigate(goTo, { replace: true });
+                  }
+                }}
+                className="w-full h-[46px] rounded-[8px] bg-white/5 border border-white/15 flex items-center justify-center space-x-2 font-sans font-medium text-[14px] text-[#F5F3EF] hover:bg-white/10 hover:border-white/25 transition-all duration-200">
                  <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                   <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -228,7 +302,8 @@ const Signup = () => {
                 <span className="absolute left-[14px] top-[13px] font-mono text-[14px] text-[#6B6860]">@</span>
                 <input type="text" value={formData.handle} onChange={e => updateForm('handle', e.target.value)} placeholder=" " className="float-input w-full h-[46px] bg-white/5 border border-[#C8A96A]/20 rounded-[8px] pl-[30px] pr-[14px] font-mono text-[14px] text-[#F5F3EF] focus:outline-none focus:border-[#C8A96A] transition-all" required />
                 <label className="float-label bg-transparent px-1 left-[28px] peer-focus:left-[14px]">Username / Handle <span className="text-[#C8A96A] font-mono">*</span></label>
-                {formData.handle.length > 2 && <span className="absolute right-3 top-[14px] text-green-500 font-sans text-[12px] flex items-center"><Check className="w-4 h-4 mr-1"/> Available</span>}
+                {usernameStatus === 'available' && <span className="absolute right-3 top-[14px] text-green-500 font-sans text-[12px] flex items-center"><Check className="w-4 h-4 mr-1"/> Available</span>}
+                {usernameStatus === 'taken' && <span className="absolute right-3 top-[14px] text-red-500 font-sans text-[12px] flex items-center"><AlertCircle className="w-4 h-4 mr-1"/> Taken</span>}
               </div>
 
               <div className="float-label-container">
@@ -299,6 +374,23 @@ const Signup = () => {
                       className={`px-3 py-1.5 rounded-full border-[0.5px] font-sans text-[12px] transition-all text-left md:text-center ${formData.interests.includes(int) ? 'border-[#C8A96A] bg-[#C8A96A]/10 text-[#C8A96A]' : 'border-white/10 text-[#6B6860] hover:border-white/30'}`}
                     >
                       {int}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-sans text-[12px] text-[#9B9790] mb-3 px-1">Software Tools</label>
+                <div className="flex flex-wrap gap-2 md:grid md:grid-cols-3">
+                  {['AutoCAD', 'Revit', 'SketchUp', 'Rhino', 'V-Ray', 'Lumion', 'Photoshop', 'Grasshopper', 'Blender'].map(tool => (
+                    <button key={tool} type="button" 
+                      onClick={() => {
+                        const newTools = formData.software.includes(tool) ? formData.software.filter(t => t !== tool) : [...formData.software, tool];
+                        updateForm('software', newTools);
+                      }}
+                      className={`px-3 py-1.5 rounded-full border-[0.5px] font-sans text-[12px] transition-all text-left md:text-center ${formData.software.includes(tool) ? 'border-[#C8A96A] bg-[#C8A96A]/10 text-[#C8A96A]' : 'border-white/10 text-[#6B6860] hover:border-white/30'}`}
+                    >
+                      {tool}
                     </button>
                   ))}
                 </div>

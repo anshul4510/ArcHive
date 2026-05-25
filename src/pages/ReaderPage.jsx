@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import HexPattern from '../components/HexPattern';
 import { useUi } from '../context/UiContext';
+import { useAuth } from '../context/AuthContext';
 
 // MOCK DATA for Reader
 const mockContent = {
@@ -16,7 +17,7 @@ const mockContent = {
   readTime: "12 min read",
   category: "Case Study",
   image: "/meridian.png",
-  stats: { views: "12.4k", saves: "3.2k", upvotes: "1.1k" },
+  stats: { views: "0", saves: "0", upvotes: "0" },
   tags: ["High-rise", "Sustainable", "Concrete"],
   content: `
     <h2>Introduction</h2>
@@ -50,15 +51,32 @@ const ReaderPage = () => {
   const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
   
   const [loading, setLoading] = useState(true);
-  const [upvoted, setUpvoted] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [upvoted, setUpvoted] = useState(() => {
+    const storedUpvotes = JSON.parse(localStorage.getItem('archive_ui_upvotes') || '[]');
+    return storedUpvotes.includes(id);
+  });
+  const [saved, setSaved] = useState(() => {
+    const storedSaves = JSON.parse(localStorage.getItem('archive_ui_saves') || '{}');
+    return !!storedSaves[id];
+  });
+  const [prevId, setPrevId] = useState(id);
+
+  if (id !== prevId) {
+    setPrevId(id);
+    setLoading(true);
+    const storedUpvotes = JSON.parse(localStorage.getItem('archive_ui_upvotes') || '[]');
+    const storedSaves = JSON.parse(localStorage.getItem('archive_ui_saves') || '{}');
+    setUpvoted(storedUpvotes.includes(id));
+    setSaved(!!storedSaves[id]);
+  }
 
   const { openAuthPrompt, addToast } = useUi();
-  const isLoggedIn = !!localStorage.getItem('archive_auth');
+  const { currentUser } = useAuth();
+  const isLoggedIn = !!currentUser;
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    setLoading(true);
+
     // Simulate fetch
     const timer = setTimeout(() => {
       setLoading(false);
@@ -73,10 +91,19 @@ const ReaderPage = () => {
     }
     
     if (actionType === 'upvote') {
-      setUpvoted(!upvoted);
+      const newVal = !upvoted;
+      setUpvoted(newVal);
+      const stored = JSON.parse(localStorage.getItem('archive_ui_upvotes') || '[]');
+      if (newVal) localStorage.setItem('archive_ui_upvotes', JSON.stringify([...stored, id]));
+      else localStorage.setItem('archive_ui_upvotes', JSON.stringify(stored.filter(item => item !== id)));
     } else if (actionType === 'save') {
-      setSaved(!saved);
-      if (!saved) addToast('Saved to collection', 'success');
+      const newVal = !saved;
+      setSaved(newVal);
+      const stored = JSON.parse(localStorage.getItem('archive_ui_saves') || '{}');
+      if (newVal) stored[id] = 'Reading List';
+      else delete stored[id];
+      localStorage.setItem('archive_ui_saves', JSON.stringify(stored));
+      if (newVal) addToast('Saved to collection', 'success');
     }
   };
 

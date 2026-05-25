@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Hexagon, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -10,34 +11,38 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
+  
+  const { signIn, signInGoogle } = useAuth();
+  const navigate   = useNavigate();
+  const location   = useLocation();
+  const goTo = location.state?.from || '/projects';
 
-  useEffect(() => {
-    if (localStorage.getItem('archive_auth')) {
-      navigate('/projects');
-    }
-  }, [navigate]);
-
-  const handleLogin = (e) => {
+  const handleEmailLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setError('');
+    setError(null);
+    const { user, error } = await signIn(email, password);
+    setIsLoading(false);
+    if (error) { setError(error); return; }
+    navigate(goTo, { replace: true });
+  };
 
-    setTimeout(() => {
-      if (email === 'demo@archive.com' && password === 'Archive@2024') {
-        localStorage.setItem("archive_auth", JSON.stringify({
-          name: "Anshul",
-          handle: "@anshul_arch",
-          email: "demo@archive.com",
-          avatar: null,
-          role: "Architect"
-        }));
-        navigate('/projects');
-      } else {
-        setError('Invalid email or password');
-        setIsLoading(false);
-      }
-    }, 600);
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    setError(null);
+    const { user, isNew, error } = await signInGoogle();
+    setIsLoading(false);
+    if (error) { setError(error); return; }
+    if (!user) return;
+
+    if (isNew) {
+      navigate('/signup', {
+        state: { googleUser: true, from: goTo },
+        replace: true
+      });
+    } else {
+      navigate(goTo, { replace: true });
+    }
   };
 
   return (
@@ -62,7 +67,11 @@ const Login = () => {
         <p className="font-sans text-[13px] text-[#6B6860] mt-1">Sign in to your ArcHive account</p>
       </div>
 
-      <button className="w-full h-[46px] rounded-[8px] bg-white/5 border border-white/15 flex items-center justify-center space-x-2 font-sans font-medium text-[14px] text-[#F5F3EF] hover:bg-white/10 hover:border-white/25 transition-all duration-200">
+      <button 
+        type="button"
+        onClick={handleGoogleLogin}
+        className="w-full h-[46px] rounded-[8px] bg-white/5 border border-white/15 flex items-center justify-center space-x-2 font-sans font-medium text-[14px] text-[#F5F3EF] hover:bg-white/10 hover:border-white/25 transition-all duration-200"
+      >
         <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
           <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -78,7 +87,7 @@ const Login = () => {
         <div className="flex-1 border-t border-[#C8A96A]/20"></div>
       </div>
 
-      <form onSubmit={handleLogin} className="space-y-5 relative">
+      <form onSubmit={handleEmailLogin} className="space-y-5 relative">
         
         <div className="float-label-container mt-2">
           <input 

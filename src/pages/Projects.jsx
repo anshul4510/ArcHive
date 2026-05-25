@@ -3,8 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Search, ChevronDown, Grid, List, Columns, Heart, ArrowUp, X, Hexagon, Filter, MapPin, Eye, Calendar, ArrowRight, ChevronRight } from 'lucide-react';
 import HexPattern from '../components/HexPattern';
-import { mockProjects } from '../data/mockProjects';
+import { getProjectsFeed, toggleUpvote, toggleSave } from '../lib/projects';
 import { useUi } from '../context/UiContext';
+import { useAuth } from '../context/AuthContext';
 
 const categories = ['All', 'Residential', 'Commercial', 'Urban Planning', 'Interior', 'Landscape', 'Heritage', 'Mixed-Use'];
 const sortOptions = ['Top Rated', 'Newest First', 'Oldest First', 'Trending', 'Most Saved', 'Recently Updated'];
@@ -15,42 +16,122 @@ const Projects = () => {
   const [activeSort, setActiveSort] = useState('Top Rated');
   const [viewMode, setViewMode] = useState('grid'); // grid, list, compact
   const [isSortOpen, setIsSortOpen] = useState(false);
-  const [filteredProjects, setFilteredProjects] = useState(mockProjects);
+  const [projects, setProjects] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(0);
+  const LIMIT = 12;
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
   const { openAuthPrompt } = useUi();
-  const isLoggedIn = !!localStorage.getItem('archive_auth');
+  const { currentUser } = useAuth();
+  const isLoggedIn = !!currentUser;
 
   const handleUploadClick = (e) => {
     if (!isLoggedIn) {
       e.preventDefault();
-      openAuthPrompt('Sign in to upload your design', 'Create your ArcHive account to start publishing your architecture projects.');
+      navigate('/login', { state: { from: '/studio/new' } });
     }
   };
 
-  useEffect(() => {
-    if (location.state && location.state.category) {
+  const [prevLocationState, setPrevLocationState] = useState(location.state);
+
+  if (location.state !== prevLocationState) {
+    setPrevLocationState(location.state);
+    if (location.state?.category) {
       setActiveCategory(location.state.category);
     }
-  }, [location.state]);
+  }
 
+  const fetchProjects = async (reset = true) => {
+    if (reset) {
+      setTimeout(() => {
+        setPage(0);
+        setLoading(true);
+      }, 0);
+    } else {
+      setTimeout(() => setLoadingMore(true), 0);
+    }
+
+    const { data, error } = await getProjectsFeed({
+      firebaseUid: currentUser?.uid || null,
+      category: activeCategory === 'All' ? null : activeCategory,
+      sort: activeSort === 'Newest First' ? 'newest' :
+            activeSort === 'Oldest First' ? 'oldest' :
+            activeSort === 'Top Rated' ? 'top_rated' :
+            activeSort === 'Trending' ? 'trending' :
+            activeSort === 'Most Saved' ? 'most_saved' : 'newest',
+      contentType: 'project',
+      limit: LIMIT,
+      offset: reset ? 0 : page * LIMIT,
+    });
+
+    if (error) {
+      console.error(error);
+      // addToast('Failed to load projects', 'error'); // If toast is available here
+    } else {
+      const mapped = (data.projects || []).map(p => ({
+        id: p.id,
+        category: p.category || 'Project',
+        title: p.title,
+        description: p.description,
+        image: p.cover_image_url || '/meridian.png',
+        tags: p.tags || [],
+        location: `${p.location_city || ''}, ${p.location_country || ''}`.replace(/^, | , $/g, ''),
+        year: p.project_year,
+        area: `${p.area_value || ''} ${p.area_unit || ''}`.trim(),
+        author: {
+          name: p.author?.display_name || p.author?.username,
+          username: p.author?.username,
+          avatar: p.author?.avatar_url || `https://ui-avatars.com/api/?name=${p.author?.username}`,
+          verified: p.author?.is_verified,
+        },
+        stats: {
+          upvotes: p.upvote_count,
+          saves: p.save_count,
+          views: p.view_count,
+        },
+        createdAt: new Date(p.created_at).toLocaleDateString(),
+        hasUpvoted: p.viewer_has_upvoted,
+        hasSaved: p.viewer_has_saved,
+        routeTo: `/projects/${p.author?.username}/${p.repo_name}`
+      }));
+
+      if (reset) {
+        setProjects(mapped);
+      } else {
+        setProjects(prev => [...prev, ...mapped]);
+      }
+      setTotal(data.total || 0);
+      setPage(prev => reset ? 1 : prev + 1);
+    }
+
+    setLoading(false);
+    setLoadingMore(false);
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    // Simulate loading
-    setLoading(true);
-    const timer = setTimeout(() => {
-      let result = mockProjects;
-      if (activeCategory !== 'All') {
-        result = result.filter(p => p.category === activeCategory);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchProjects(true);
+  }, [activeCategory, activeSort, currentUser]);
+
+  // Handle intersection observer for infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && projects.length < total && !loadingMore && !loading) {
+        fetchProjects(false);
       }
-      if (searchQuery) {
-        result = result.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase()) || p.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase())));
-      }
-      setFilteredProjects(result);
-      setLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [activeCategory, searchQuery]);
+    }, { threshold: 0.1 });
+
+    const sentinel = document.getElementById('scroll-sentinel');
+    if (sentinel) observer.observe(sentinel);
+
+    return () => {
+      if (sentinel) observer.unobserve(sentinel);
+    };
+  }, [projects.length, total, loading, loadingMore]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -97,9 +178,9 @@ const Projects = () => {
               Browse, fork, and get inspired by the world's architectural community.
             </p>
             <div className="flex space-x-6 font-mono text-[12px] text-accent-gold-dim">
-              <span className="flex items-center"><Hexagon className="w-3 h-3 mr-2" strokeWidth={1}/> 4,832 Projects</span>
-              <span className="flex items-center"><Hexagon className="w-3 h-3 mr-2" strokeWidth={1}/> 1,204 Authors</span>
-              <span className="flex items-center"><Hexagon className="w-3 h-3 mr-2" strokeWidth={1}/> 29K Saves</span>
+              <span className="flex items-center"><Hexagon className="w-3 h-3 mr-2" strokeWidth={1}/> 0 Projects</span>
+              <span className="flex items-center"><Hexagon className="w-3 h-3 mr-2" strokeWidth={1}/> 0 Authors</span>
+              <span className="flex items-center"><Hexagon className="w-3 h-3 mr-2" strokeWidth={1}/> 0 Saves</span>
             </div>
           </div>
 
@@ -205,6 +286,7 @@ const Projects = () => {
               to="/studio/new"
               onClick={handleUploadClick}
               className="border border-accent-gold text-accent-gold hover:bg-accent-gold hover:text-bg-dark px-5 py-2 rounded-buttons text-sm font-medium font-sans hover:shadow-gold-glow transition-all flex items-center group overflow-hidden relative"
+              title={!isLoggedIn ? "Sign in to upload your design" : undefined}
             >
               <span className="relative z-10">+ Upload Design</span>
               <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
@@ -259,7 +341,7 @@ const Projects = () => {
               </div>
             ))}
           </div>
-        ) : filteredProjects.length === 0 ? (
+        ) : projects.length === 0 ? (
           // Empty State
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <Hexagon className="w-20 h-20 text-accent-gold mb-6 animate-pulse opacity-50" strokeWidth={1} />
@@ -285,14 +367,28 @@ const Projects = () => {
             }
           >
             <AnimatePresence>
-              {filteredProjects.map((project) => (
+              {projects.map((project) => (
                 <ProjectCard key={project.id} project={project} viewMode={viewMode} navigate={navigate} variants={cardVariants} />
               ))}
             </AnimatePresence>
           </motion.div>
         )}
 
-        {!loading && filteredProjects.length > 0 && (
+        {loadingMore && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-5">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="bg-white rounded-cards border border-border-gold overflow-hidden h-[420px] relative">
+                <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.4s_infinite] bg-gradient-to-r from-transparent via-accent-gold/10 to-transparent z-10" />
+                <div className="h-[220px] bg-surface" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Sentinel for Infinite Scroll */}
+        <div id="scroll-sentinel" className="h-4 mt-8" />
+
+        {!loading && !loadingMore && projects.length > 0 && projects.length >= total && (
           <div className="mt-20 flex flex-col items-center justify-center opacity-60">
             <div className="w-px h-12 bg-gradient-to-b from-transparent via-accent-gold to-transparent mb-4" />
             <p className="font-mono text-xs text-text-muted uppercase tracking-widest">You've seen everything for now.</p>
@@ -306,63 +402,53 @@ const Projects = () => {
 
 const ProjectCard = ({ project, viewMode, navigate, variants }) => {
   const { openAuthPrompt, addToast } = useUi();
-  const isLoggedIn = !!localStorage.getItem('archive_auth');
+  const { currentUser } = useAuth();
+  const isLoggedIn = !!currentUser;
   
-  // Initialize from localStorage if exists
-  const getInitialUpvotes = () => {
-    const stored = JSON.parse(localStorage.getItem('archive_upvotes') || '[]');
-    return stored.includes(project.id);
-  };
-  
-  const getInitialSaves = () => {
-    const stored = JSON.parse(localStorage.getItem('archive_saves') || '{}');
-    return !!stored[project.id];
-  };
+  const [upvoted, setUpvoted] = useState(project.hasUpvoted);
+  const [saved, setSaved] = useState(project.hasSaved);
+  const [upvotes, setUpvotes] = useState(project.stats.upvotes);
 
-  const [upvoted, setUpvoted] = useState(getInitialUpvotes());
-  const [saved, setSaved] = useState(getInitialSaves());
-  const [upvotes, setUpvotes] = useState(project.stats.upvotes + (getInitialUpvotes() ? 1 : 0));
-
-  const handleUpvote = (e) => {
+  const handleUpvote = async (e) => {
     e.stopPropagation();
     if (!isLoggedIn) {
       openAuthPrompt('Sign in to upvote', 'Create your ArcHive account to upvote projects.');
       return;
     }
     
+    // Optimistic
     const newVal = !upvoted;
     setUpvoted(newVal);
     setUpvotes(prev => newVal ? prev + 1 : prev - 1);
     
-    // Persist
-    const stored = JSON.parse(localStorage.getItem('archive_upvotes') || '[]');
-    if (newVal) {
-      localStorage.setItem('archive_upvotes', JSON.stringify([...stored, project.id]));
-    } else {
-      localStorage.setItem('archive_upvotes', JSON.stringify(stored.filter(id => id !== project.id)));
+    const { data, error } = await toggleUpvote(currentUser.uid, project.id);
+    if (error) {
+      setUpvoted(!newVal);
+      setUpvotes(prev => !newVal ? prev + 1 : prev - 1);
+      addToast('Failed to upvote', 'error');
+    } else if (data) {
+      setUpvotes(data.new_count);
     }
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.stopPropagation();
     if (!isLoggedIn) {
       openAuthPrompt('Sign in to save', 'Create your ArcHive account to save projects to collections.');
       return;
     }
     
+    // Optimistic
     const newVal = !saved;
     setSaved(newVal);
     
-    // Persist
-    const stored = JSON.parse(localStorage.getItem('archive_saves') || '{}');
-    if (newVal) {
-      stored[project.id] = 'Default Collection';
-      addToast('Saved to collection', 'success');
+    const { error } = await toggleSave(currentUser.uid, project.id);
+    if (error) {
+      setSaved(!newVal);
+      addToast('Failed to save project', 'error');
     } else {
-      delete stored[project.id];
-      addToast('Removed from collection', 'info');
+      addToast(newVal ? 'Saved to collection' : 'Removed from collection', newVal ? 'success' : 'info');
     }
-    localStorage.setItem('archive_saves', JSON.stringify(stored));
   };
 
   if (viewMode === 'list') {
@@ -370,7 +456,7 @@ const ProjectCard = ({ project, viewMode, navigate, variants }) => {
       <motion.div 
         layout
         variants={variants}
-        onClick={() => navigate(`/projects/${project.id}`)}
+        onClick={() => navigate(project.routeTo)}
         className="group flex flex-col sm:flex-row bg-white rounded-cards border border-border-gold overflow-hidden hover:shadow-elevated hover:border-accent-gold/40 transition-all cursor-pointer h-auto sm:h-32"
       >
         <div className="w-full sm:w-48 h-48 sm:h-full relative overflow-hidden shrink-0">
@@ -387,7 +473,7 @@ const ProjectCard = ({ project, viewMode, navigate, variants }) => {
           <div className="flex items-center justify-between mt-4 sm:mt-0">
             <div className="flex items-center space-x-2">
               <img src={project.author.avatar} alt="" className="w-6 h-6 rounded-full" />
-              <span className="font-sans text-[13px] font-medium">{project.author.name}</span>
+              <span className="font-sans text-[13px] font-medium" onClick={(e) => { e.stopPropagation(); navigate(`/profile/${project.author.username}`); }}>{project.author.name}</span>
             </div>
             <div className="flex items-center space-x-4 font-mono text-[11px] text-accent-gold-dim">
               <span className="flex items-center"><ArrowUp className="w-3 h-3 mr-1"/>{upvotes}</span>
@@ -404,7 +490,7 @@ const ProjectCard = ({ project, viewMode, navigate, variants }) => {
       <motion.div 
         layout
         variants={variants}
-        onClick={() => navigate(`/projects/${project.id}`)}
+        onClick={() => navigate(project.routeTo)}
         className="group bg-white rounded-cards border border-border-gold overflow-hidden hover:shadow-elevated hover:-translate-y-1 transition-all cursor-pointer break-inside-avoid"
       >
         <div className="aspect-square relative overflow-hidden">
@@ -413,7 +499,7 @@ const ProjectCard = ({ project, viewMode, navigate, variants }) => {
         <div className="p-3">
           <h3 className="font-serif text-[15px] text-text-primary line-clamp-1">{project.title}</h3>
           <div className="flex items-center justify-between mt-2">
-            <img src={project.author.avatar} alt="" className="w-5 h-5 rounded-full" />
+            <img src={project.author.avatar} alt="" className="w-5 h-5 rounded-full" onClick={(e) => { e.stopPropagation(); navigate(`/profile/${project.author.username}`); }} />
             <span className="font-mono text-[10px] text-accent-gold flex items-center">
               <ArrowUp className="w-3 h-3 mr-0.5" />{upvotes}
             </span>
@@ -428,7 +514,7 @@ const ProjectCard = ({ project, viewMode, navigate, variants }) => {
     <motion.div
       layout
       variants={variants}
-      onClick={() => navigate(`/projects/${project.id}`)}
+      onClick={() => navigate(project.routeTo)}
       className="group bg-white rounded-cards border border-border-gold overflow-hidden hover:shadow-elevated hover:-translate-y-1.5 transition-all duration-300 cursor-pointer break-inside-avoid relative"
     >
       {/* Hover Watermark */}
@@ -473,7 +559,7 @@ const ProjectCard = ({ project, viewMode, navigate, variants }) => {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center space-x-2">
             <img src={project.author.avatar} alt={project.author.name} className="w-8 h-8 rounded-full" />
-            <span className="font-sans text-[13px] font-medium text-text-primary flex items-center">
+            <span className="font-sans text-[13px] font-medium text-text-primary flex items-center hover:text-accent-gold transition-colors" onClick={(e) => { e.stopPropagation(); navigate(`/profile/${project.author.username}`); }}>
               {project.author.name}
               {project.author.verified && <Hexagon className="w-3 h-3 ml-1 text-accent-gold fill-current" />}
             </span>
@@ -511,7 +597,7 @@ const ProjectCard = ({ project, viewMode, navigate, variants }) => {
           <span className="flex items-center"><Eye className="w-3 h-3 mr-1" /> {project.stats.views}</span>
         </div>
         <Link 
-          to={`/projects/${project.id}`}
+          to={project.routeTo}
           onClick={(e) => e.stopPropagation()}
           className="px-4 py-1.5 border border-accent-gold text-accent-gold rounded font-sans text-[11px] font-medium hover:bg-accent-gold hover:text-bg-dark transition-all duration-300 flex items-center group"
         >

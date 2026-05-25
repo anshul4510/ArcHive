@@ -27,16 +27,25 @@ export default function SearchOverlay() {
   const inputRef = useRef(null);
   const navigate = useNavigate();
 
+  const [prevIsSearchOpen, setPrevIsSearchOpen] = useState(isSearchOpen);
+
+  if (isSearchOpen !== prevIsSearchOpen) {
+    setPrevIsSearchOpen(isSearchOpen);
+    if (isSearchOpen) {
+      const stored = localStorage.getItem('archive_recent_searches');
+      if (stored) setRecent(JSON.parse(stored));
+    } else {
+      setQuery('');
+      setResults(null);
+    }
+  }
+
   useEffect(() => {
     if (isSearchOpen) {
       setTimeout(() => inputRef.current?.focus(), 100);
       document.body.style.overflow = 'hidden';
-      const stored = localStorage.getItem('archive_recent_searches');
-      if (stored) setRecent(JSON.parse(stored));
     } else {
       document.body.style.overflow = 'unset';
-      setQuery('');
-      setResults(null);
     }
   }, [isSearchOpen]);
 

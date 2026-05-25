@@ -1,15 +1,17 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { ChevronDown, ArrowRight, BookOpen, Layers, Monitor, Target, Link as LinkIcon, Database, Check } from 'lucide-react';
+import { ChevronDown, ArrowRight, Layers, Monitor, Target, Link as LinkIcon, Database, Check } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import HexPattern from '../components/HexPattern';
 import { useUi } from '../context/UiContext';
+import { useAuth } from '../context/AuthContext';
 
 const Services = () => {
   const { scrollY } = useScroll();
   const parallaxY = useTransform(scrollY, [0, 1000], [0, 300]);
   const heroTextY = useTransform(scrollY, [0, 1000], [0, 200]);
   const { openConsultation, openService } = useUi();
+  const { currentUser } = useAuth();
 
   // Framer Motion variants
   const staggerContainer = {
@@ -130,6 +132,12 @@ const Services = () => {
             <motion.h1 variants={fadeUp} className="font-serif text-[clamp(40px,6vw,64px)] leading-[1.05] text-white mb-6">
               Where Vision<br />Meets Structure.
             </motion.h1>
+
+            {currentUser && (
+              <motion.p variants={fadeUp} className="font-mono text-[14px] text-accent-gold mb-6">
+                Welcome, {currentUser.displayName || 'Architect'} — Studio Level {currentUser.stats?.level || 1}
+              </motion.p>
+            )}
             
             <motion.p variants={fadeUp} className="font-sans text-[16px] text-[#9B9790] leading-[1.7] max-w-[440px] mb-10">
               From bespoke architectural consultations to a living digital platform for the world's design community — ArcHive is the complete ecosystem for modern architects.
@@ -294,7 +302,7 @@ const Services = () => {
               {/* Floating Stat Card */}
               <div className="absolute bottom-6 right-6 bg-white/90 backdrop-blur-md border border-[#C8A96A]/30 p-4 rounded-[8px] shadow-elevated">
                 <p className="font-serif text-[14px] text-[#1A1A1A]">
-                  <span className="font-bold">4,832</span> Projects · <span className="font-bold">1,204</span> Architects · <span className="font-bold">50+</span> Countries
+                  <span className="font-bold">0</span> Projects · <span className="font-bold">0</span> Architects · <span className="font-bold">0</span> Countries
                 </p>
               </div>
             </motion.div>
@@ -465,9 +473,15 @@ const Services = () => {
                 Book Free Consultation
                 <ArrowRight className="w-5 h-5 ml-2" />
               </button>
-              <Link to="/projects" className="w-full sm:w-auto border border-white/20 text-white px-10 py-4 rounded-buttons font-sans font-medium text-[16px] hover:border-accent-gold hover:text-accent-gold transition-all duration-300 flex items-center justify-center">
-                Browse Projects
-              </Link>
+              {currentUser ? (
+                <Link to="/studio" className="w-full sm:w-auto border border-white/20 text-white px-10 py-4 rounded-buttons font-sans font-medium text-[16px] hover:border-accent-gold hover:text-accent-gold transition-all duration-300 flex items-center justify-center">
+                  Enter Studio
+                </Link>
+              ) : (
+                <Link to="/projects" className="w-full sm:w-auto border border-white/20 text-white px-10 py-4 rounded-buttons font-sans font-medium text-[16px] hover:border-accent-gold hover:text-accent-gold transition-all duration-300 flex items-center justify-center">
+                  Browse Projects
+                </Link>
+              )}
             </div>
 
             <p className="font-mono text-[11px] text-[#9B9790] mt-8">

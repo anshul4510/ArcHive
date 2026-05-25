@@ -392,7 +392,7 @@ const About = () => {
                     <img key={i} src={`https://i.pravatar.cc/150?u=${i+10}`} alt="User" className="w-8 h-8 rounded-full border-2 border-bg-primary" />
                   ))}
                 </div>
-                <p className="font-mono text-[12px] text-[#6B6860]">+ 4,832 architects already here</p>
+                <p className="font-mono text-[12px] text-[#6B6860]">+ 0 architects already here</p>
               </div>
             </div>
           </motion.div>

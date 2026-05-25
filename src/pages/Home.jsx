@@ -4,12 +4,14 @@ import { ChevronDown, ArrowRight, Layers, Home as HomeIcon, Map, Grid, Columns, 
 import { Link, useNavigate } from 'react-router-dom';
 import HexBackground from '../components/HexBackground';
 import { useUi } from '../context/UiContext';
+import { useAuth } from '../context/AuthContext';
 
 const Home = () => {
   const navigate = useNavigate();
   const { scrollY } = useScroll();
   const heroY = useTransform(scrollY, [0, 1000], [0, 400]);
   const { openConsultation } = useUi();
+  const { currentUser, displayName } = useAuth();
 
   // Framer Motion variants
   const staggerContainer = {
@@ -59,18 +61,38 @@ const Home = () => {
               <span className="text-bg-primary text-shadow-glow">That Define Tomorrow</span>
             </motion.h1>
             
+            {currentUser && (
+              <p className="font-sans text-[16px] text-white/65 mb-6">
+                Welcome back, {displayName}.
+              </p>
+            )}
+
             <motion.p variants={fadeUp} className="font-editorial text-[clamp(24px,3vw,32px)] leading-[1.3] text-accent-gold italic mb-12 max-w-2xl">
               Where structural precision meets human experience.
             </motion.p>
             
             <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
-              <Link to="/projects" className="group bg-accent-gold text-bg-dark px-8 py-4 rounded-buttons font-sans font-medium hover:bg-accent-gold-dim transition-all duration-300 flex items-center shadow-gold-glow">
-                View Projects
-                <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-              </Link>
-              <button onClick={openConsultation} className="group border border-surface text-surface px-8 py-4 rounded-buttons font-sans font-medium hover:bg-accent-gold hover:text-bg-dark hover:border-accent-gold transition-all duration-300">
-                Contact Us
-              </button>
+              {currentUser ? (
+                <>
+                  <Link to="/projects" className="group bg-accent-gold text-bg-dark px-8 py-4 rounded-buttons font-sans font-medium hover:bg-accent-gold-dim transition-all duration-300 flex items-center shadow-gold-glow">
+                    Continue to Projects
+                    <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                  <Link to="/studio" className="group border border-surface text-surface px-8 py-4 rounded-buttons font-sans font-medium hover:bg-accent-gold hover:text-bg-dark hover:border-accent-gold transition-all duration-300">
+                    Open Studio
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link to="/projects" className="group bg-accent-gold text-bg-dark px-8 py-4 rounded-buttons font-sans font-medium hover:bg-accent-gold-dim transition-all duration-300 flex items-center shadow-gold-glow">
+                    View Projects
+                    <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                  <button onClick={openConsultation} className="group border border-surface text-surface px-8 py-4 rounded-buttons font-sans font-medium hover:bg-accent-gold hover:text-bg-dark hover:border-accent-gold transition-all duration-300">
+                    Contact Us
+                  </button>
+                </>
+              )}
             </motion.div>
           </motion.div>
         </div>
@@ -136,9 +158,9 @@ const Home = () => {
               {/* Stats */}
               <motion.div variants={fadeUp} className="grid grid-cols-3 gap-8 mb-12 border-t border-b border-border-gold py-8">
                 {[
-                  { value: '50k+', label: 'Blueprints' },
-                  { value: '12k', label: 'Contributors' },
-                  { value: '85+', label: 'Countries' }
+                  { value: '0', label: 'Blueprints' },
+                  { value: '0', label: 'Contributors' },
+                  { value: '0', label: 'Countries' }
                 ].map((stat, i) => (
                   <div key={i}>
                     <p className="font-serif text-3xl lg:text-4xl text-bg-dark mb-2">{stat.value}</p>

@@ -3,6 +3,8 @@ import Overlay from '../Overlay';
 import { Hexagon, Loader2, Mail, Phone, MapPin } from 'lucide-react';
 import { useUi } from '../../context/UiContext';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { motion } from 'framer-motion';
 
 export default function ConsultationOverlay() {
   const { isConsultationOpen, closeConsultation, isAuthPromptOpen, authPromptMessage, closeAuthPrompt } = useUi();
@@ -11,14 +13,31 @@ export default function ConsultationOverlay() {
   const [timeLeft, setTimeLeft] = useState(5);
   const navigate = useNavigate();
 
+  const { currentUser, displayName } = useAuth();
+
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
+    name: displayName || '',
+    email: currentUser?.email || '',
     phone: '',
     service: '',
     brief: '',
     contactMode: 'email'
   });
+
+  const [prevCurrentUser, setPrevCurrentUser] = useState(currentUser);
+  const [prevDisplayName, setPrevDisplayName] = useState(displayName);
+
+  if (currentUser !== prevCurrentUser || displayName !== prevDisplayName) {
+    setPrevCurrentUser(currentUser);
+    setPrevDisplayName(displayName);
+    if (currentUser) {
+      setFormData(prev => ({
+        ...prev,
+        name: prev.name || displayName || '',
+        email: prev.email || currentUser.email || ''
+      }));
+    }
+  }
 
   // Handle auto-dismiss
   useEffect(() => {
@@ -90,7 +109,7 @@ export default function ConsultationOverlay() {
     );
   }
 
-  const isValid = formData.name && formData.email && formData.service;
+  const isValid = (formData.name || currentUser) && (formData.email || currentUser) && formData.service;
 
   return (
     <Overlay isOpen={isConsultationOpen} onClose={() => {
@@ -165,33 +184,37 @@ export default function ConsultationOverlay() {
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              <div className="relative">
-                <input
-                  type="text"
-                  id="c_name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="w-full bg-transparent border border-border-light rounded h-12 px-4 pt-4 pb-1 text-[14px] text-text-primary focus:border-accent-gold outline-none peer"
-                  placeholder=" "
-                />
-                <label htmlFor="c_name" className="absolute left-4 top-1/2 -translate-y-1/2 text-[14px] text-text-muted transition-all peer-focus:top-3 peer-focus:text-[10px] peer-focus:text-accent-gold peer-not-placeholder-shown:top-3 peer-not-placeholder-shown:text-[10px]">
-                  Full Name *
-                </label>
-              </div>
+              {!currentUser && (
+                <>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      id="c_name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      className="w-full bg-transparent border border-border-light rounded h-12 px-4 pt-4 pb-1 text-[14px] text-text-primary focus:border-accent-gold outline-none peer"
+                      placeholder=" "
+                    />
+                    <label htmlFor="c_name" className="absolute left-4 top-1/2 -translate-y-1/2 text-[14px] text-text-muted transition-all peer-focus:top-3 peer-focus:text-[10px] peer-focus:text-accent-gold peer-not-placeholder-shown:top-3 peer-not-placeholder-shown:text-[10px]">
+                      Full Name *
+                    </label>
+                  </div>
 
-              <div className="relative">
-                <input
-                  type="email"
-                  id="c_email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  className="w-full bg-transparent border border-border-light rounded h-12 px-4 pt-4 pb-1 text-[14px] text-text-primary focus:border-accent-gold outline-none peer"
-                  placeholder=" "
-                />
-                <label htmlFor="c_email" className="absolute left-4 top-1/2 -translate-y-1/2 text-[14px] text-text-muted transition-all peer-focus:top-3 peer-focus:text-[10px] peer-focus:text-accent-gold peer-not-placeholder-shown:top-3 peer-not-placeholder-shown:text-[10px]">
-                  Email Address *
-                </label>
-              </div>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      id="c_email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      className="w-full bg-transparent border border-border-light rounded h-12 px-4 pt-4 pb-1 text-[14px] text-text-primary focus:border-accent-gold outline-none peer"
+                      placeholder=" "
+                    />
+                    <label htmlFor="c_email" className="absolute left-4 top-1/2 -translate-y-1/2 text-[14px] text-text-muted transition-all peer-focus:top-3 peer-focus:text-[10px] peer-focus:text-accent-gold peer-not-placeholder-shown:top-3 peer-not-placeholder-shown:text-[10px]">
+                      Email Address *
+                    </label>
+                  </div>
+                </>
+              )}
 
               <div className="relative">
                 <input

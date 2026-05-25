@@ -1,22 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Hexagon, MapPin, Globe, Briefcase, GraduationCap, Calendar, Mail,
-  Check, Edit2, LogOut, Trash2, ChevronLeft, ChevronRight, Search, 
-  Settings as SettingsIcon, BarChart2, BookMarked, Grid, Lock, GitFork, Heart, ArrowUp, Plus, X,
-  TrendingUp, ChevronRight as ChevronRightIcon
+  Check, Edit2, LogOut, Trash2, ChevronLeft, ChevronRight, Search, Lock, GitFork, Heart, ArrowUp, Plus,
+  TrendingUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
+import { updateProfile } from 'firebase/auth';
+import AvatarDisplay from '../components/AvatarDisplay';
+import { useToast } from '../components/ToastContext';
+import { getConnections } from '../lib/profile';
+import { getProfileProjects } from '../lib/projects';
 
 // --- STUB COMPONENTS FOR TABS ---
 
-const RepoRow = ({ repo, isOwnProfile }) => (
+const RepoRow = ({ repo, isOwnProfile, username }) => (
   <div className="flex flex-col w-full bg-white border border-[#C8A96A]/15 rounded-[10px] p-4 mb-2 hover:border-[#C8A96A]/30 transition-colors group">
     <div className="flex justify-between items-start">
       <div>
         <div className="flex items-center space-x-2">
           <Hexagon className="w-3.5 h-3.5 text-[#C8A96A]" strokeWidth={2} />
-          <Link to={`/projects/${repo.id}`} className="font-sans text-[15px] font-medium text-[#1A1A1A] group-hover:text-[#C8A96A] transition-colors">
+          <Link to={`/projects/${username}/${repo.repo_name || repo.name}`} className="font-sans text-[15px] font-medium text-[#1A1A1A] group-hover:text-[#C8A96A] transition-colors">
             {repo.name}
           </Link>
           <span className="font-sans text-[11px] text-[#6B6860] bg-[#F5F3EF] px-2 py-0.5 rounded-full">{repo.category}</span>
@@ -55,33 +61,98 @@ const RepoRow = ({ repo, isOwnProfile }) => (
   </div>
 );
 
-const RepositoriesTab = ({ isOwnProfile }) => {
-  const mockRepos = [
-    { id: 1, name: "The Meridian Residence", category: "Residential", description: "A brutalist approach to tropical living spaces.", location: "Mumbai, IN", year: "2025", upvotes: 284, saves: 91, forks: 34, updatedAt: "3 days ago", isPrivate: false, isFork: false },
-    { id: 2, name: "Nexus Studio Complex", category: "Commercial", description: "Adaptive reuse of an abandoned warehouse into a creative hub.", location: "Pune, IN", year: "2024", upvotes: 212, saves: 64, forks: 12, updatedAt: "1 week ago", isPrivate: false, isFork: false },
-    { id: 3, name: "Eco-Pod Prototypes", category: "Sustainable", description: "Modular housing units for disaster relief.", location: "Global", year: "2026", upvotes: 89, saves: 12, forks: 45, updatedAt: "2 weeks ago", isPrivate: true, isFork: false },
-  ];
+const RepositoriesTab = ({ isOwnProfile, projects = [], loading = false, username }) => {
+  const [search, setSearch] = React.useState('');
+  const [visibilityFilter, setVisibilityFilter] = React.useState('All');
+  const [sortOrder, setSortOrder] = React.useState('Newest');
+
+  if (loading) {
+    return <div className="py-12 text-center font-sans text-sm text-[#6B6860]">Loading projects...</div>;
+  }
+
+  const filtered = projects.filter(repo => {
+    const matchesSearch = (repo.title || '').toLowerCase().includes(search.toLowerCase()) || 
+                          (repo.repo_name || '').toLowerCase().includes(search.toLowerCase()) ||
+                          (repo.description || '').toLowerCase().includes(search.toLowerCase());
+    
+    if (!matchesSearch) return false;
+
+    if (visibilityFilter === 'Public') return repo.visibility === 'public';
+    if (visibilityFilter === 'Private') return repo.visibility === 'private';
+    if (visibilityFilter === 'Forked') return !!repo.is_fork;
+
+    return true;
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortOrder === 'Newest') return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at);
+    if (sortOrder === 'Oldest') return new Date(a.updated_at || a.created_at) - new Date(b.updated_at || b.created_at);
+    if (sortOrder === 'Most Stars') return (b.upvotes_count || 0) - (a.upvotes_count || 0);
+    return 0;
+  });
 
   return (
     <div className="mt-6">
       <div className="flex flex-col md:flex-row justify-between mb-6 gap-4">
         <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#6B6860]" />
-          <input type="text" placeholder="Find a repository..." className="w-full h-9 pl-9 pr-3 rounded-md border border-[#C8A96A]/20 bg-white font-sans text-sm focus:outline-none focus:border-[#C8A96A]" />
+          <input 
+            type="text" 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Find a repository..." 
+            className="w-full h-9 pl-9 pr-3 rounded-md border border-[#C8A96A]/20 bg-white font-sans text-sm focus:outline-none focus:border-[#C8A96A]" 
+          />
         </div>
         <div className="flex space-x-2">
-          <select className="h-9 px-3 rounded-md border border-[#C8A96A]/20 bg-white font-sans text-sm focus:outline-none">
-            <option>All</option><option>Public</option><option>Private</option><option>Forked</option>
+          <select 
+            value={visibilityFilter}
+            onChange={(e) => setVisibilityFilter(e.target.value)}
+            className="h-9 px-3 rounded-md border border-[#C8A96A]/20 bg-white font-sans text-sm focus:outline-none"
+          >
+            <option>All</option>
+            <option>Public</option>
+            {isOwnProfile && <option>Private</option>}
+            <option>Forked</option>
           </select>
-          <select className="h-9 px-3 rounded-md border border-[#C8A96A]/20 bg-white font-sans text-sm focus:outline-none">
-            <option>Newest</option><option>Oldest</option><option>Most Stars</option>
+          <select 
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value)}
+            className="h-9 px-3 rounded-md border border-[#C8A96A]/20 bg-white font-sans text-sm focus:outline-none"
+          >
+            <option>Newest</option>
+            <option>Oldest</option>
+            <option>Most Stars</option>
           </select>
         </div>
       </div>
       <div>
-        {mockRepos.filter(r => isOwnProfile || !r.isPrivate).map(repo => (
-          <RepoRow key={repo.id} repo={repo} isOwnProfile={isOwnProfile} />
-        ))}
+        {sorted.map(repo => {
+          const normalizedRepo = {
+            id: repo.id,
+            name: repo.title || repo.repo_name,
+            repo_name: repo.repo_name,
+            category: repo.category || 'Architecture',
+            description: repo.description || 'No description provided.',
+            location: `${repo.location_city || ''}${repo.location_city && repo.location_country ? ', ' : ''}${repo.location_country || ''}` || 'Unknown Location',
+            year: repo.project_year || 'N/A',
+            upvotes: repo.upvote_count || repo.upvotes_count || 0,
+            saves: repo.save_count || repo.saves_count || 0,
+            forks: repo.fork_count || repo.forks_count || 0,
+            updatedAt: new Date(repo.updated_at || repo.created_at).toLocaleDateString(),
+            isPrivate: repo.visibility === 'private',
+            isFork: repo.is_fork,
+            forkedFrom: repo.forked_from
+          };
+          return (
+            <RepoRow key={repo.id} repo={normalizedRepo} isOwnProfile={isOwnProfile} username={username} />
+          );
+        })}
+        {sorted.length === 0 && (
+          <div className="py-12 text-center font-sans text-sm text-[#6B6860]">
+            No repositories found.
+          </div>
+        )}
       </div>
     </div>
   );
@@ -91,10 +162,10 @@ const InsightsTab = () => (
   <div className="mt-6 space-y-8">
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       {[
-        { label: "Total Views", val: "48,291", trend: "12% week", pos: true },
-        { label: "Total Saves", val: "1,847", trend: "4% week", pos: true },
-        { label: "Upvotes", val: "6,204", trend: "8% week", pos: true },
-        { label: "Forks", val: "312", trend: "2% week", pos: true },
+        { label: "Total Views", val: "0", trend: "0% week", pos: true },
+        { label: "Total Saves", val: "0", trend: "0% week", pos: true },
+        { label: "Upvotes", val: "0", trend: "0% week", pos: true },
+        { label: "Forks", val: "0", trend: "0% week", pos: true },
       ].map((stat, i) => (
         <div key={i} className="bg-white border-l-[3px] border-[#C8A96A] border-y border-r border-y-[#C8A96A]/10 border-r-[#C8A96A]/10 rounded-r-md p-4 shadow-sm">
           <div className="font-mono text-[10px] text-[#C8A96A] uppercase mb-1">{stat.label}</div>
@@ -109,193 +180,585 @@ const InsightsTab = () => (
       <h3 className="font-sans font-medium text-[#1A1A1A] mb-4">Views Over Time</h3>
       <div className="h-48 flex items-end justify-between space-x-1">
          {[...Array(30)].map((_, i) => (
-           <div key={i} className="w-full bg-[#C8A96A]/20 rounded-t-sm hover:bg-[#C8A96A] transition-colors" style={{ height: `${Math.random() * 100}%` }}></div>
+           <div key={i} className="w-full bg-[#C8A96A]/20 rounded-t-sm hover:bg-[#C8A96A] transition-colors" style={{ height: `0%` }}></div>
          ))}
       </div>
     </div>
   </div>
 );
 
-const SettingsTab = () => (
-  <div className="mt-6 max-w-2xl space-y-8">
-    <section>
-      <h3 className="font-serif text-[18px] text-[#1A1A1A] mb-4">Personal Information</h3>
-      <div className="space-y-4">
-        <div className="float-label-container">
-          <input type="text" defaultValue="Cinzel" className="float-input w-full h-[46px] bg-white border border-[#C8A96A]/20 rounded-[8px] px-[14px] font-sans text-[14px] focus:outline-none focus:border-[#C8A96A]" placeholder=" " />
-          <label className="float-label bg-white px-1">Full Name</label>
-        </div>
-        <div className="float-label-container">
-          <input type="email" defaultValue="demo@archive.com" className="float-input w-full h-[46px] bg-white border border-[#C8A96A]/20 rounded-[8px] px-[14px] font-sans text-[14px] focus:outline-none focus:border-[#C8A96A]" placeholder=" " />
-          <label className="float-label bg-white px-1">Email Address</label>
-        </div>
-      </div>
-    </section>
-    
-    <section>
-      <h3 className="font-serif text-[18px] text-[#1A1A1A] mb-4">Privacy & Visibility</h3>
-      <div className="space-y-4 bg-white p-5 rounded-[10px] border border-[#C8A96A]/15">
-        {[
-          { label: "Show email on profile", defaultChecked: false },
-          { label: "Allow messages from anyone", defaultChecked: true },
-          { label: "Show activity feed publicly", defaultChecked: true },
-          { label: "Show saved projects publicly", defaultChecked: false },
-        ].map((toggle, i) => (
-          <div key={i} className="flex justify-between items-center">
-            <span className="font-sans text-[14px] text-[#1A1A1A]">{toggle.label}</span>
-            <div className={`w-10 h-5 rounded-full relative cursor-pointer transition-colors ${toggle.defaultChecked ? 'bg-[#C8A96A]' : 'bg-[#EDEBE6]'}`}>
-              <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${toggle.defaultChecked ? 'translate-x-5' : 'translate-x-0'}`}></div>
+const SettingsTab = () => {
+  const { 
+    supabaseUser, firebaseUser, refreshProfile, 
+    displayName, username: authUsername, bio, 
+    userTitle, organization, locationCity, locationCountry, 
+    yearsExp, websiteUrl, education, 
+    updateProfileFields 
+  } = useAuth();
+  const { toast } = useToast();
+
+  const [toggles, setToggles] = React.useState({
+    show_email: supabaseUser?.show_email ?? false,
+    allow_messages: supabaseUser?.allow_messages ?? true,
+    show_activity: supabaseUser?.show_activity ?? true,
+    show_saves: supabaseUser?.show_saves ?? false,
+  });
+
+  const [formData, setFormData] = React.useState({
+    displayName: displayName || '',
+    email: firebaseUser?.email || '',
+    username: authUsername || '',
+    bio: bio || '',
+    title: userTitle || '',
+    organization: organization || '',
+    location: `${locationCity || ''}${locationCity && locationCountry ? ', ' : ''}${locationCountry || ''}`,
+    yearsExp: yearsExp || '',
+    websiteUrl: websiteUrl || '',
+    education: education || '',
+  });
+
+  const [prevDisplayName, setPrevDisplayName] = React.useState(displayName);
+  const [prevEmail, setPrevEmail] = React.useState(firebaseUser?.email);
+  const [prevUsername, setPrevUsername] = React.useState(authUsername);
+  const [prevBio, setPrevBio] = React.useState(bio);
+  const [prevTitle, setPrevTitle] = React.useState(userTitle);
+  const [prevOrganization, setPrevOrganization] = React.useState(organization);
+  const [prevLocationCity, setPrevLocationCity] = React.useState(locationCity);
+  const [prevLocationCountry, setPrevLocationCountry] = React.useState(locationCountry);
+  const [prevYearsExp, setPrevYearsExp] = React.useState(yearsExp);
+  const [prevWebsiteUrl, setPrevWebsiteUrl] = React.useState(websiteUrl);
+  const [prevEducation, setPrevEducation] = React.useState(education);
+  const [prevSupabaseUser, setPrevSupabaseUser] = React.useState(supabaseUser);
+
+  if (displayName !== prevDisplayName) {
+    setPrevDisplayName(displayName);
+    setFormData(prev => ({ ...prev, displayName: displayName || '' }));
+  }
+
+  if (firebaseUser?.email !== prevEmail) {
+    setPrevEmail(firebaseUser?.email);
+    setFormData(prev => ({ ...prev, email: firebaseUser?.email || '' }));
+  }
+
+  if (authUsername !== prevUsername) {
+    setPrevUsername(authUsername);
+    setFormData(prev => ({ ...prev, username: authUsername || '' }));
+  }
+
+  if (bio !== prevBio) {
+    setPrevBio(bio);
+    setFormData(prev => ({ ...prev, bio: bio || '' }));
+  }
+
+  if (userTitle !== prevTitle) {
+    setPrevTitle(userTitle);
+    setFormData(prev => ({ ...prev, title: userTitle || '' }));
+  }
+
+  if (organization !== prevOrganization) {
+    setPrevOrganization(organization);
+    setFormData(prev => ({ ...prev, organization: organization || '' }));
+  }
+
+  if (locationCity !== prevLocationCity || locationCountry !== prevLocationCountry) {
+    setPrevLocationCity(locationCity);
+    setPrevLocationCountry(locationCountry);
+    setFormData(prev => ({ ...prev, location: `${locationCity || ''}${locationCity && locationCountry ? ', ' : ''}${locationCountry || ''}` }));
+  }
+
+  if (yearsExp !== prevYearsExp) {
+    setPrevYearsExp(yearsExp);
+    setFormData(prev => ({ ...prev, yearsExp: yearsExp || '' }));
+  }
+
+  if (websiteUrl !== prevWebsiteUrl) {
+    setPrevWebsiteUrl(websiteUrl);
+    setFormData(prev => ({ ...prev, websiteUrl: websiteUrl || '' }));
+  }
+
+  if (education !== prevEducation) {
+    setPrevEducation(education);
+    setFormData(prev => ({ ...prev, education: education || '' }));
+  }
+
+  if (supabaseUser !== prevSupabaseUser) {
+    setPrevSupabaseUser(supabaseUser);
+    if (supabaseUser) {
+      setToggles({
+        show_email: supabaseUser.show_email ?? false,
+        allow_messages: supabaseUser.allow_messages ?? true,
+        show_activity: supabaseUser.show_activity ?? true,
+        show_saves: supabaseUser.show_saves ?? false,
+      });
+    }
+  }
+
+  const handleToggle = async (key) => {
+    const newVal = !toggles[key];
+    setToggles(prev => ({ ...prev, [key]: newVal }));
+    if (firebaseUser?.uid) {
+      try {
+        const { error } = await updateProfileFields({ [key]: newVal });
+        if (error) {
+          toast.error(error);
+          setToggles(prev => ({ ...prev, [key]: !newVal }));
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
+
+  const handleSave = async () => {
+    if (!firebaseUser?.uid) return;
+    try {
+      const locCity = formData.location.split(',')[0]?.trim() || formData.location;
+      const locCountry = formData.location.split(',')[1]?.trim() || '';
+
+      const { error } = await updateProfileFields({
+        display_name: formData.displayName,
+        username: formData.username,
+        bio: formData.bio,
+        title: formData.title,
+        organization: formData.organization,
+        location_city: locCity,
+        location_country: locCountry,
+        years_exp: formData.yearsExp,
+        website_url: formData.websiteUrl,
+        education: formData.education,
+      });
+
+      if (error) {
+        toast.error(error);
+        return;
+      }
+
+      toast.success('Profile updated.');
+    } catch (err) {
+      console.error(err);
+      toast.error('Error saving profile changes.');
+    }
+  };
+
+  return (
+    <div className="mt-6 max-w-2xl space-y-8">
+      <section>
+        <h3 className="font-serif text-[18px] text-[#1A1A1A] mb-4">Personal Information</h3>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="float-label-container">
+              <input type="text" value={formData.displayName} onChange={e => setFormData({...formData, displayName: e.target.value})} className="float-input w-full h-[46px] bg-white border border-[#C8A96A]/20 rounded-[8px] px-[14px] font-sans text-[14px] focus:outline-none focus:border-[#C8A96A]" placeholder=" " />
+              <label className="float-label bg-white px-1">Full Name</label>
+            </div>
+            <div className="float-label-container">
+              <input type="text" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className="float-input w-full h-[46px] bg-white border border-[#C8A96A]/20 rounded-[8px] px-[14px] font-sans text-[14px] focus:outline-none focus:border-[#C8A96A]" placeholder=" " />
+              <label className="float-label bg-white px-1">Username / Handle</label>
             </div>
           </div>
-        ))}
-      </div>
-    </section>
 
-    <div className="pt-4">
-      <button className="px-6 py-2 bg-[#C8A96A] text-[#1A1A1A] rounded-md font-sans font-medium hover:bg-[#A8894A] transition-colors">Save Changes</button>
-    </div>
-  </div>
-);
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="float-label-container">
+              <select value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="float-input w-full h-[46px] bg-white border border-[#C8A96A]/20 rounded-[8px] px-[10px] font-sans text-[14px] focus:outline-none focus:border-[#C8A96A] appearance-none">
+                <option value="" disabled hidden></option>
+                {['Architect', 'Interior Designer', 'Urban Planner', 'Landscape Architect', 'Structural Engineer', 'Civil Engineer', 'Architecture Student', 'Other'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
+              </select>
+              <label className={`absolute left-[14px] transition-all ${formData.title ? '-top-2 scale-[0.82] text-[#C8A96A] bg-white px-1' : 'top-[14px] text-[#6B6860] pointer-events-none'}`}>Professional Title</label>
+            </div>
+            <div className="float-label-container">
+              <select value={formData.yearsExp} onChange={e => setFormData({...formData, yearsExp: e.target.value})} className="float-input w-full h-[46px] bg-white border border-[#C8A96A]/20 rounded-[8px] px-[10px] font-sans text-[14px] focus:outline-none focus:border-[#C8A96A] appearance-none">
+                <option value="" disabled hidden></option>
+                {['0–2', '3–5', '6–10', '10+'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
+              </select>
+              <label className={`absolute left-[14px] transition-all ${formData.yearsExp ? '-top-2 scale-[0.82] text-[#C8A96A] bg-white px-1' : 'top-[14px] text-[#6B6860] pointer-events-none'}`}>Years of Experience</label>
+            </div>
+          </div>
 
-const OverviewTab = ({ isOwnProfile }) => (
-  <div className="mt-6 space-y-8">
-    {/* Contribution Graph */}
-    <div className="bg-white border border-[#C8A96A]/20 rounded-[12px] p-6 shadow-sm">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="font-serif text-[16px] text-[#1A1A1A]">ACTIVITY</h3>
-        <div className="font-mono text-[12px] text-[#6B6860] flex items-center space-x-2">
-          <button className="hover:text-[#C8A96A] p-1"><ChevronLeft className="w-3.5 h-3.5" /></button>
-          <span>2026</span>
-          <button className="hover:text-[#C8A96A] p-1"><ChevronRight className="w-3.5 h-3.5" /></button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="float-label-container">
+              <input type="text" value={formData.organization} onChange={e => setFormData({...formData, organization: e.target.value})} className="float-input w-full h-[46px] bg-white border border-[#C8A96A]/20 rounded-[8px] px-[14px] font-sans text-[14px] focus:outline-none focus:border-[#C8A96A]" placeholder=" " />
+              <label className="float-label bg-white px-1">Current Organization / Studio</label>
+            </div>
+            <div className="float-label-container">
+              <input type="text" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="float-input w-full h-[46px] bg-white border border-[#C8A96A]/20 rounded-[8px] px-[14px] font-sans text-[14px] focus:outline-none focus:border-[#C8A96A]" placeholder=" " />
+              <label className="float-label bg-white px-1">Country/City</label>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="float-label-container">
+              <input type="text" value={formData.education} onChange={e => setFormData({...formData, education: e.target.value})} className="float-input w-full h-[46px] bg-white border border-[#C8A96A]/20 rounded-[8px] px-[14px] font-sans text-[14px] focus:outline-none focus:border-[#C8A96A]" placeholder=" " />
+              <label className="float-label bg-white px-1">Education</label>
+            </div>
+            <div className="float-label-container">
+              <input type="url" value={formData.websiteUrl} onChange={e => setFormData({...formData, websiteUrl: e.target.value})} className="float-input w-full h-[46px] bg-white border border-[#C8A96A]/20 rounded-[8px] px-[14px] font-sans text-[14px] focus:outline-none focus:border-[#C8A96A]" placeholder=" " />
+              <label className="float-label bg-white px-1">Portfolio / Website URL</label>
+            </div>
+          </div>
+
+          <div className="float-label-container">
+            <textarea value={formData.bio} onChange={e => setFormData({...formData, bio: e.target.value})} className="float-input w-full h-[100px] py-3 bg-white border border-[#C8A96A]/20 rounded-[8px] px-[14px] font-sans text-[14px] focus:outline-none focus:border-[#C8A96A] resize-none" placeholder=" " />
+            <label className="float-label bg-white px-1">Bio / About</label>
+          </div>
+
+          <div className="float-label-container">
+            <input type="email" value={formData.email} disabled className="float-input w-full h-[46px] bg-gray-50 border border-[#C8A96A]/20 rounded-[8px] px-[14px] font-sans text-[14px] focus:outline-none focus:border-[#C8A96A] text-gray-500" placeholder=" " />
+            <label className="float-label bg-white px-1">Email Address</label>
+          </div>
         </div>
-      </div>
-      <div className="overflow-x-auto pb-2">
-        <div className="flex space-x-[3px] min-w-[700px]">
-          {/* Mock 52 weeks */}
-          {[...Array(52)].map((_, w) => (
-            <div key={w} className="flex flex-col space-y-[3px]">
-              {[...Array(7)].map((_, d) => {
-                const levels = ['bg-[#EDEBE6]', 'bg-[#C8A96A]/25', 'bg-[#C8A96A]/55', 'bg-[#C8A96A]/80', 'bg-[#C8A96A]'];
-                const level = Math.random() > 0.7 ? Math.floor(Math.random() * 4) + 1 : 0;
-                return (
-                  <div key={d} className={`w-[10px] h-[10px] rounded-[2px] ${levels[level]} hover:ring-1 hover:ring-[#C8A96A] transition-all cursor-pointer`} title="Activity"></div>
-                )
-              })}
+      </section>
+      
+      <section>
+        <h3 className="font-serif text-[18px] text-[#1A1A1A] mb-4">Privacy & Visibility</h3>
+        <div className="space-y-4 bg-white p-5 rounded-[10px] border border-[#C8A96A]/15">
+          {[
+            { key: 'show_email', label: "Show email on profile" },
+            { key: 'allow_messages', label: "Allow messages from anyone" },
+            { key: 'show_activity', label: "Show activity feed publicly" },
+            { key: 'show_saves', label: "Show saved projects publicly" },
+          ].map((toggle, i) => (
+            <div key={i} className="flex justify-between items-center">
+              <span className="font-sans text-[14px] text-[#1A1A1A]">{toggle.label}</span>
+              <div onClick={() => handleToggle(toggle.key)} className={`w-10 h-5 rounded-full relative cursor-pointer transition-colors ${toggles[toggle.key] ? 'bg-[#C8A96A]' : 'bg-[#EDEBE6]'}`}>
+                <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${toggles[toggle.key] ? 'translate-x-5' : 'translate-x-0'}`}></div>
+              </div>
             </div>
           ))}
         </div>
+      </section>
+
+      <div className="pt-4">
+        <button onClick={handleSave} className="px-6 py-2 bg-[#C8A96A] text-[#1A1A1A] rounded-md font-sans text-[14px] font-medium hover:bg-[#A8894A] transition-colors">Save Changes</button>
       </div>
-      <div className="flex justify-between items-center mt-3">
-        <div className="text-[9px] font-mono text-[#6B6860]">Learn how we count contributions</div>
-        <div className="flex items-center space-x-1 text-[9px] font-mono text-[#6B6860]">
-          <span>Less</span>
-          <div className="flex space-x-[3px]">
-            {['bg-[#EDEBE6]', 'bg-[#C8A96A]/25', 'bg-[#C8A96A]/55', 'bg-[#C8A96A]/80', 'bg-[#C8A96A]'].map((bg, i) => (
-              <div key={i} className={`w-[10px] h-[10px] rounded-[2px] ${bg}`}></div>
+    </div>
+  );
+};
+
+const OverviewTab = ({ isOwnProfile, activityMap = {} }) => {
+  const today = new Date();
+  const currentDayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
+  const endDate = new Date(today);
+  endDate.setDate(today.getDate() + (6 - currentDayOfWeek)); // Saturday of current week
+  
+  const startDate = new Date(endDate);
+  startDate.setDate(endDate.getDate() - 364 + 1); // 364 days ago
+
+  return (
+    <div className="mt-6 space-y-8">
+      {/* Contribution Graph */}
+      <div className="bg-white border border-[#C8A96A]/20 rounded-[12px] p-6 shadow-sm">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="font-serif text-[16px] text-[#1A1A1A]">ACTIVITY</h3>
+          <div className="font-mono text-[12px] text-[#6B6860] flex items-center space-x-2">
+            <button className="hover:text-[#C8A96A] p-1"><ChevronLeft className="w-3.5 h-3.5" /></button>
+            <span>{today.getFullYear()}</span>
+            <button className="hover:text-[#C8A96A] p-1"><ChevronRight className="w-3.5 h-3.5" /></button>
+          </div>
+        </div>
+        <div className="overflow-x-auto pb-2">
+          <div className="flex space-x-[3px] min-w-[700px]">
+            {[...Array(52)].map((_, w) => (
+              <div key={w} className="flex flex-col space-y-[3px]">
+                {[...Array(7)].map((_, d) => {
+                  const cellDate = new Date(startDate);
+                  cellDate.setDate(startDate.getDate() + (w * 7 + d));
+                  const dateStr = cellDate.toISOString().split('T')[0];
+                  const count = activityMap[dateStr] || 0;
+                  
+                  const levels = ['bg-[#EDEBE6]', 'bg-[#C8A96A]/25', 'bg-[#C8A96A]/55', 'bg-[#C8A96A]/80', 'bg-[#C8A96A]'];
+                  const level = count === 0 ? 0 : Math.min(4, count);
+                  
+                  const formattedDate = cellDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                  const tooltip = `${count} contribution${count === 1 ? '' : 's'} on ${formattedDate}`;
+
+                  return (
+                    <div 
+                      key={d} 
+                      className={`w-[10px] h-[10px] rounded-[2px] ${levels[level]} hover:ring-1 hover:ring-[#C8A96A] transition-all cursor-pointer`} 
+                      title={tooltip}
+                    />
+                  );
+                })}
+              </div>
             ))}
           </div>
-          <span>More</span>
+        </div>
+        <div className="flex justify-between items-center mt-3">
+          <div className="text-[9px] font-mono text-[#6B6860]">Learn how we count contributions</div>
+          <div className="flex items-center space-x-1 text-[9px] font-mono text-[#6B6860]">
+            <span>Less</span>
+            <div className="flex space-x-[3px]">
+              {['bg-[#EDEBE6]', 'bg-[#C8A96A]/25', 'bg-[#C8A96A]/55', 'bg-[#C8A96A]/80', 'bg-[#C8A96A]'].map((bg, i) => (
+                <div key={i} className={`w-[10px] h-[10px] rounded-[2px] ${bg}`}></div>
+              ))}
+            </div>
+            <span>More</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Pinned Projects */}
+      <div>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="font-serif text-[16px] text-[#1A1A1A]">PINNED PROJECTS</h3>
+          {isOwnProfile && <button className="text-[12px] font-sans text-[#6B6860] hover:text-[#C8A96A] flex items-center"><Edit2 className="w-3 h-3 mr-1"/> Edit Pins</button>}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* No pinned projects yet */}
         </div>
       </div>
     </div>
-
-    {/* Pinned Projects */}
-    <div>
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="font-serif text-[16px] text-[#1A1A1A]">PINNED PROJECTS</h3>
-        {isOwnProfile && <button className="text-[12px] font-sans text-[#6B6860] hover:text-[#C8A96A] flex items-center"><Edit2 className="w-3 h-3 mr-1"/> Edit Pins</button>}
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {[1, 2].map(i => (
-          <div key={i} className="bg-white border-l-[3px] border-[#C8A96A] border-y border-r border-y-[#C8A96A]/10 border-r-[#C8A96A]/10 rounded-[10px] p-4 hover:-translate-y-1 hover:shadow-[0_4px_20px_rgba(200,169,106,0.15)] transition-all cursor-pointer">
-            <div className="flex justify-between items-start">
-              <h4 className="font-serif text-[14px] text-[#1A1A1A]">The Meridian Residence</h4>
-              <span className="font-sans text-[10px] bg-[#EDEBE6] text-[#6B6860] px-2 py-0.5 rounded-full">Residential</span>
-            </div>
-            <p className="font-sans text-[12px] text-[#6B6860] mt-2 line-clamp-1">A brutalist approach to tropical living spaces.</p>
-            <div className="flex space-x-3 mt-3 font-mono text-[10px] text-[#6B6860]">
-              <span className="flex items-center"><ArrowUp className="w-3 h-3 mr-1"/> 284</span>
-              <span className="flex items-center"><Heart className="w-3 h-3 mr-1"/> 91</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-);
-
+  );
+};
 
 // --- MAIN PROFILE COMPONENT ---
 
 const Profile = () => {
   const { username, tab } = useParams();
   const navigate = useNavigate();
-  const [authData, setAuthData] = useState(null);
+  const { 
+    firebaseUser, supabaseUser, signOut, 
+    displayName, username: authUsername, avatarUrl, bannerUrl, userTitle, 
+    locationCity, locationCountry, bio, organization, education, 
+    websiteUrl, linkedinUrl, isVerified, memberSince, 
+    specializations, tools, interests, followerCount, followingCount, repoCount,
+    incrementFollowing, decrementFollowing, refreshProfile,
+    deleteAccount, reauthenticate, signInGoogle, authProvider
+  } = useAuth();
+  const { toast } = useToast();
   
   // Logic to determine if it's the own profile
-  const isOwnProfile = !username || username === 'me' || (authData && username === authData.handle?.replace('@',''));
+  const isOwnProfile = !username || username === 'me' || username === authUsername;
   
   // Local states
-  const [activeTab, setActiveTab] = useState(tab || 'overview');
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [activeTab, setActiveTab] = React.useState(tab || 'overview');
+  const [isFollowing, setIsFollowing] = React.useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState(null);
+  const [isDeleting, setIsDeleting] = React.useState(false);
+  const [reauthPassword, setReauthPassword] = React.useState('');
+  const [showReauth, setShowReauth] = React.useState(false);
+  const [reauthError, setReauthError] = React.useState(null);
 
-  useEffect(() => {
-    try {
-      const localData = localStorage.getItem('archive_auth');
-      if (localData) {
-        setAuthData(JSON.parse(localData));
-      } else if (username === 'me' || !username) {
-        navigate('/login');
+  const [prevTab, setPrevTab] = React.useState(tab);
+
+  if (tab !== prevTab) {
+    setPrevTab(tab);
+    if (tab) {
+      setActiveTab(tab);
+    }
+  }
+
+  const [profileData, setProfileData] = React.useState(null);
+  const [loadingProfile, setLoadingProfile] = React.useState(true);
+
+  // New dynamic states for projects, connections, activities
+  const [projects, setProjects] = React.useState([]);
+  const [loadingProjects, setLoadingProjects] = React.useState(true);
+  const [connections, setConnections] = React.useState([]);
+  const [activityMap, setActivityMap] = React.useState({});
+
+  React.useEffect(() => {
+    async function fetchUser() {
+      if (isOwnProfile) {
+        setProfileData({
+          id: supabaseUser?.id,
+          name: displayName,
+          handle: authUsername,
+          avatarUrl,
+          bannerUrl,
+          title: userTitle,
+          locationCity,
+          locationCountry,
+          bio,
+          firm: organization,
+          education,
+          memberSince,
+          website: websiteUrl,
+          linkedin: linkedinUrl,
+          specializations,
+          tools,
+          stats: { projects: repoCount, followers: followerCount, following: followingCount, upvotes: 0 },
+          isVerified,
+          showEmail: supabaseUser?.show_email,
+        });
+        setLoadingProfile(false);
+      } else {
+        setLoadingProfile(true);
+        const { data } = await supabase.from('users').select(`*, user_specializations(tag), user_tools(tool)`).eq('username', username).single();
+        if (data) {
+           const { data: stats } = await supabase.from('user_stats').select('follower_count, following_count').eq('id', data.id).single();
+           setProfileData({
+              id: data.id,
+              name: data.display_name,
+              handle: data.username,
+              avatarUrl: data.avatar_url,
+              bannerUrl: data.banner_url,
+              title: data.title,
+              locationCity: data.location_city,
+              locationCountry: data.location_country,
+              bio: data.bio,
+              firm: data.organization,
+              education: data.education,
+              memberSince: data.member_since,
+              website: data.website_url,
+              linkedin: data.linkedin_url,
+              specializations: data.user_specializations?.map(s => s.tag) || [],
+              tools: data.user_tools?.map(t => t.tool) || [],
+              stats: { projects: 0, followers: stats?.follower_count || 0, following: stats?.following_count || 0, upvotes: 0 },
+              isVerified: data.is_verified,
+              showEmail: data.show_email
+           });
+        } else {
+           navigate('/not-found');
+        }
+        setLoadingProfile(false);
       }
-    } catch (e) {
-      console.error("Auth parsing error", e);
+    }
+    fetchUser();
+  }, [isOwnProfile, username, displayName, authUsername, avatarUrl, bannerUrl, userTitle, locationCity, locationCountry, bio, organization, education, memberSince, websiteUrl, linkedinUrl, specializations, tools, followerCount, followingCount, repoCount, supabaseUser, navigate, isVerified]);
+
+  React.useEffect(() => {
+    if (!profileData?.id) return;
+    async function loadStatsAndActivities() {
+      const { data: connData } = await getConnections(profileData.id);
+      if (connData) {
+        setConnections(connData);
+      }
+      
+      const oneYearAgo = new Date();
+      oneYearAgo.setDate(oneYearAgo.getDate() - 365);
+      const { data: actData } = await supabase
+        .from('activities')
+        .select('created_at')
+        .eq('user_id', profileData.id)
+        .gte('created_at', oneYearAgo.toISOString());
+      
+      if (actData) {
+        const map = {};
+        actData.forEach(act => {
+          const dateStr = new Date(act.created_at).toISOString().split('T')[0];
+          map[dateStr] = (map[dateStr] || 0) + 1;
+        });
+        setActivityMap(map);
+      }
+    }
+    loadStatsAndActivities();
+  }, [profileData?.id]);
+
+  React.useEffect(() => {
+    if (!profileData?.handle) return;
+    async function loadProjects() {
+      setLoadingProjects(true);
+      let data = [];
+      if (isOwnProfile && firebaseUser) {
+        const { data: res } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('author_id', profileData.id);
+        if (res) data = res;
+      } else {
+        const { data: res } = await getProfileProjects(profileData.handle);
+        if (res) data = res;
+      }
+      setProjects(data);
+      setLoadingProjects(false);
+    }
+    loadProjects();
+  }, [profileData?.handle, isOwnProfile, firebaseUser, profileData?.id]);
+
+  React.useEffect(() => {
+    if (!firebaseUser && (username === 'me' || !username)) {
       navigate('/login');
     }
-  }, [username, navigate]);
+  }, [firebaseUser, username, navigate]);
 
-  // Profile Data Source
-  const profileData = isOwnProfile ? {
-    name: authData?.name || 'Anshul',
-    handle: authData?.handle || '@anshul_arch',
-    title: authData?.role || 'Principal Architect & Urbanist',
-    location: 'Mumbai, India',
-    bio: 'Founder of ArcHive. Passionate about modular structural systems and the future of sustainable urban density. Architecture is the hardware of society.',
-    firm: 'ArcHive Studio',
-    education: 'School of Planning & Architecture, 2022',
-    memberSince: 'January 2026',
-    website: 'anshul.archive.com',
-    specializations: ['Modular Design', 'Sustainable Urbanism', 'Structural Logic', 'Digital Fabrication'],
-    tools: ['Revit', 'Rhino', 'Grasshopper', 'Twinmotion'],
-    stats: { projects: 42, followers: '3.4k', following: 892, upvotes: '12.5k' },
-    connections: 128
-  } : {
-    name: 'Zaha Hadid',
-    handle: '@zahahadid',
-    title: 'Legendary Architect',
-    location: 'London, UK',
-    bio: 'Exploring the fluidity of space and form. Pushing the boundaries of structural expressionism.',
-    firm: 'Zaha Hadid Architects',
-    education: 'AA School of Architecture',
-    memberSince: 'January 2024',
-    website: 'zaha-hadid.com',
-    specializations: ['Parametric', 'Deconstructivism', 'Civic Architecture'],
-    tools: ['Rhino', 'Maya', 'Grasshopper'],
-    stats: { projects: 142, followers: '124k', following: 12, upvotes: '890k' },
-    connections: 1205
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/');
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('archive_auth');
-    window.location.href = '/';
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    setDeleteError(null);
+    setReauthError(null);
+    
+    const res = await deleteAccount();
+    if (res && res.error) {
+      setIsDeleting(false);
+      if (res.error === 'REQUIRES_RECENT_LOGIN') {
+        setShowReauth(true);
+      } else {
+        setDeleteError(res.error);
+        toast.error(res.error);
+      }
+    } else {
+      setIsDeleting(false);
+      toast.success('Account successfully deleted.');
+      navigate('/signup');
+    }
   };
 
-  const handleDeleteAccount = () => {
-    localStorage.removeItem('archive_auth');
-    // In a real app, this would call an API
-    navigate('/signup');
+  const handleReauthenticateAndDelete = async () => {
+    setIsDeleting(true);
+    setReauthError(null);
+    setDeleteError(null);
+    
+    try {
+      if (authProvider === 'email') {
+        if (!reauthPassword) {
+          setReauthError('Password is required.');
+          setIsDeleting(false);
+          return;
+        }
+        const reauthRes = await reauthenticate(reauthPassword);
+        if (reauthRes && reauthRes.error) {
+          setReauthError(reauthRes.error);
+          setIsDeleting(false);
+          return;
+        }
+      } else if (authProvider === 'google') {
+        const reauthRes = await signInGoogle();
+        if (reauthRes && reauthRes.error) {
+          setReauthError(reauthRes.error);
+          setIsDeleting(false);
+          return;
+        }
+      }
+
+      // Retry delete
+      const res = await deleteAccount();
+      if (res && res.error) {
+        setDeleteError(res.error);
+        toast.error(res.error);
+      } else {
+        toast.success('Account successfully deleted.');
+        setShowDeleteConfirm(false);
+        setShowReauth(false);
+        navigate('/signup');
+      }
+    } catch (err) {
+      console.error(err);
+      setReauthError('An error occurred during reauthentication.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
+
+  const handleFollowToggle = async () => {
+    if (isFollowing) {
+      decrementFollowing();
+      setIsFollowing(false);
+    } else {
+      incrementFollowing();
+      setIsFollowing(true);
+      toast.info(`You are now following @${profileData?.handle}.`);
+    }
+  };
+
+  if (loadingProfile || !profileData) {
+    return <div className="min-h-screen bg-[#F5F3EF] flex items-center justify-center font-sans text-[#6B6860]">Loading profile...</div>;
+  }
 
   const tabs = isOwnProfile 
     ? ['overview', 'repositories', 'saved', 'insights', 'settings']
@@ -313,14 +776,16 @@ const Profile = () => {
       />
 
       {/* Hero Banner (Extended Cinematic Scale) */}
-      <div className="relative w-full h-[300px] md:h-[420px] bg-[#111111] z-10" data-navbar-theme="dark">
-        <div 
-          className="absolute inset-0 opacity-10 pointer-events-none"
-          style={{ 
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='55' height='95.26' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M27.5 0L55 15.87V47.63L27.5 63.5L0 47.63V15.87L27.5 0ZM27.5 95.26L55 79.38V47.63L27.5 63.5L0 79.38V95.26Z' fill='none' stroke='%23C8A96A' stroke-width='1'/%3E%3C/svg%3E")`,
-            backgroundSize: '55px 95.26px'
-          }}
-        />
+      <div className="relative w-full h-[300px] md:h-[420px] bg-[#111111] z-10" data-navbar-theme="dark" style={profileData.bannerUrl ? { backgroundImage: `url(${profileData.bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}>
+        {!profileData.bannerUrl && (
+          <div 
+            className="absolute inset-0 opacity-10 pointer-events-none"
+            style={{ 
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='55' height='95.26' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M27.5 0L55 15.87V47.63L27.5 63.5L0 47.63V15.87L27.5 0ZM27.5 95.26L55 79.38V47.63L27.5 63.5L0 79.38V95.26Z' fill='none' stroke='%23C8A96A' stroke-width='1'/%3E%3C/svg%3E")`,
+              backgroundSize: '55px 95.26px'
+            }}
+          />
+        )}
         <div className="absolute right-0 top-0 bottom-0 opacity-5 pointer-events-none">
           <svg width="400" height="240" viewBox="0 0 400 240" fill="none">
              <path d="M100 240V70L200 20L300 70V240M200 20V240M100 120H300M100 180H300" stroke="#C8A96A" strokeWidth="2"/>
@@ -341,7 +806,7 @@ const Profile = () => {
           <div className="flex flex-col md:flex-row md:items-end gap-6 relative z-30">
             <div className="relative group">
               <div className="w-[96px] h-[96px] rounded-full bg-[#111111] border-[3px] border-[#C8A96A] shadow-[0_0_0_4px_#F5F3EF] overflow-hidden flex items-center justify-center text-[#C8A96A] text-4xl">
-                {profileData.name.charAt(0)}
+                <AvatarDisplay avatarUrl={profileData.avatarUrl} displayName={profileData.name} username={profileData.handle} size={96} />
               </div>
               {isOwnProfile && (
                 <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity border-[3px] border-transparent shadow-[0_0_0_4px_transparent]">
@@ -354,11 +819,11 @@ const Profile = () => {
               <div className="flex items-center flex-wrap gap-3">
                 <h1 className="font-serif text-[28px] text-[#F5F3EF] uppercase tracking-[0.1em] leading-tight flex items-center">
                   {profileData.name}
-                  <Hexagon className="w-[16px] h-[16px] ml-3 text-[#C8A96A] fill-[#C8A96A]" />
+                  {profileData.isVerified && <Check className="w-[16px] h-[16px] ml-3 text-[#C8A96A]" strokeWidth={3} />}
                 </h1>
                 {isOwnProfile ? (
                   <div className="flex gap-2">
-                    <button className="px-3 py-1 bg-[#111111]/40 backdrop-blur-sm border border-[#C8A96A] text-[#F5F3EF] md:text-[#F5F3EF] rounded-md font-sans text-[12px] hover:bg-[#C8A96A]/20 transition-colors flex items-center">
+                    <button onClick={() => setActiveTab('settings')} className="px-3 py-1 bg-[#111111]/40 backdrop-blur-sm border border-[#C8A96A] text-[#F5F3EF] md:text-[#F5F3EF] rounded-md font-sans text-[12px] hover:bg-[#C8A96A]/20 transition-colors flex items-center">
                       <Edit2 className="w-3 h-3 mr-1.5" /> Edit Profile
                     </button>
                     <button className="px-3 py-1 bg-[#111111]/40 backdrop-blur-sm border border-white/20 text-[#F5F3EF] rounded-md font-sans text-[12px] hover:bg-white/10 transition-colors flex items-center">
@@ -368,7 +833,7 @@ const Profile = () => {
                 ) : (
                   <div className="flex gap-2">
                     <button 
-                      onClick={() => setIsFollowing(!isFollowing)}
+                      onClick={handleFollowToggle}
                       className={`px-4 py-1.5 rounded-md font-sans text-[13px] transition-all flex items-center ${isFollowing ? 'border border-[#C8A96A] text-[#F5F3EF]' : 'bg-[#C8A96A] text-[#1A1A1A] hover:bg-[#A8894A]'}`}
                     >
                       {isFollowing ? <><Check className="w-3.5 h-3.5 mr-1"/> Following</> : 'Follow'}
@@ -380,32 +845,46 @@ const Profile = () => {
                 )}
               </div>
               <div className="flex items-center gap-5 mt-3">
-                <span className="font-mono text-[13px] text-[#C8A96A] font-medium">{profileData.handle}</span>
-                <span className="font-sans text-[14px] text-[#F5F3EF]/80 flex items-center">
-                  {profileData.title}
-                </span>
-                <span className="font-sans text-[14px] text-[#F5F3EF]/80 flex items-center">
-                  <MapPin className="w-3.5 h-3.5 mr-1" /> {profileData.location}
-                </span>
+                <span className="font-mono text-[13px] text-[#C8A96A] font-medium">@{profileData.handle}</span>
+                {profileData.title && (
+                  <span className="font-sans text-[14px] text-[#F5F3EF]/80 flex items-center">
+                    {profileData.title}
+                  </span>
+                )}
+                {(profileData.locationCity || profileData.locationCountry) && (
+                  <span className="font-sans text-[14px] text-[#F5F3EF]/80 flex items-center">
+                    <MapPin className="w-3.5 h-3.5 mr-1" /> {profileData.locationCity}{profileData.locationCity && profileData.locationCountry ? ', ' : ''}{profileData.locationCountry}
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
           <div className="flex flex-col md:items-end mt-4 md:mt-0 gap-3">
             <div className="flex space-x-2">
-               {[<Globe key="1"/>, <span key="2" className="font-bold">in</span>, <span key="3" className="font-bold">X</span>].map((icon, i) => (
-                 <button key={i} className="w-[28px] h-[28px] rounded-md flex items-center justify-center text-[#C8A96A] border border-[#C8A96A]/30 hover:bg-[#C8A96A] hover:text-[#1A1A1A] transition-colors">
-                   {typeof icon === 'string' ? icon : React.cloneElement(icon, { className: 'w-3.5 h-3.5' })}
-                 </button>
-               ))}
+               {profileData.website && (
+                <a href={profileData.website} target="_blank" rel="noopener noreferrer" className="w-[28px] h-[28px] rounded-md flex items-center justify-center text-[#C8A96A] border border-[#C8A96A]/30 hover:bg-[#C8A96A] hover:text-[#1A1A1A] transition-colors">
+                  <Globe className="w-3.5 h-3.5" />
+                </a>
+              )}
+              {profileData.linkedin && (
+                <a href={profileData.linkedin} target="_blank" rel="noopener noreferrer" className="w-[28px] h-[28px] rounded-md flex items-center justify-center text-[#C8A96A] border border-[#C8A96A]/30 hover:bg-[#C8A96A] hover:text-[#1A1A1A] transition-colors">
+                  <span className="font-bold text-[11px]">in</span>
+                </a>
+              )}
+              {profileData.twitter && (
+                <a href={profileData.twitter} target="_blank" rel="noopener noreferrer" className="w-[28px] h-[28px] rounded-md flex items-center justify-center text-[#C8A96A] border border-[#C8A96A]/30 hover:bg-[#C8A96A] hover:text-[#1A1A1A] transition-colors">
+                  <span className="font-bold text-[11px]">X</span>
+                </a>
+              )}
                {isOwnProfile && <button className="w-[28px] h-[28px] rounded-md flex items-center justify-center text-[#C8A96A] border border-dashed border-[#C8A96A]/50 hover:bg-[#C8A96A]/10 transition-colors"><Plus className="w-3.5 h-3.5" /></button>}
             </div>
             <div className="flex flex-wrap gap-2">
               {[
-                { label: 'Projects', val: profileData.stats.projects },
+                { label: 'Projects', val: projects.length },
                 { label: 'Followers', val: profileData.stats.followers },
                 { label: 'Following', val: profileData.stats.following },
-                { label: 'Upvotes', val: profileData.stats.upvotes },
+                { label: 'Upvotes', val: projects.reduce((sum, p) => sum + (p.upvote_count || p.upvotes_count || 0), 0) },
               ].map(stat => (
                 <div key={stat.label} className="bg-[#1A1A1A]/40 backdrop-blur-sm border border-[#C8A96A]/20 px-3 py-1.5 rounded-md flex items-baseline gap-1.5 cursor-pointer hover:bg-[#C8A96A]/10 transition-colors">
                   <span className="font-mono text-[13px] text-[#F5F3EF] font-bold">{stat.val}</span>
@@ -428,14 +907,19 @@ const Profile = () => {
                 <h3 className="font-mono text-[10px] text-[#C8A96A] tracking-[0.15em] mb-3">ABOUT</h3>
                 <p className="font-sans text-[14px] text-[#1A1A1A] leading-relaxed mb-5 relative">
                   {profileData.bio}
-                  {isOwnProfile && <Edit2 className="absolute -right-2 -top-2 w-3.5 h-3.5 text-[#C8A96A] opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity" />}
+                  {isOwnProfile && (
+                    <Edit2 
+                      onClick={() => setActiveTab('settings')}
+                      className="absolute -right-2 -top-2 w-3.5 h-3.5 text-[#C8A96A] opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity" 
+                    />
+                  )}
                 </p>
                 <div className="space-y-3 font-sans text-[13px] text-[#1A1A1A]">
                   <div className="flex items-center gap-3"><Briefcase className="w-4 h-4 text-[#6B6860] shrink-0" /> {profileData.firm}</div>
                   <div className="flex items-center gap-3"><GraduationCap className="w-4 h-4 text-[#6B6860] shrink-0" /> {profileData.education}</div>
-                  <div className="flex items-center gap-3"><Calendar className="w-4 h-4 text-[#6B6860] shrink-0" /> Member since {profileData.memberSince}</div>
-                  {isOwnProfile && <div className="flex items-center gap-3"><Mail className="w-4 h-4 text-[#6B6860] shrink-0" /> {authData?.email || 'demo@archive.com'}</div>}
-                  <div className="flex items-center gap-3"><Globe className="w-4 h-4 text-[#6B6860] shrink-0" /> <a href="#" className="text-[#C8A96A] hover:underline">{profileData.website}</a></div>
+                  <div className="flex items-center gap-3"><Calendar className="w-4 h-4 text-[#6B6860] shrink-0" /> Member since {profileData.memberSince ? (() => { const yr = new Date(profileData.memberSince).getFullYear(); return isNaN(yr) ? profileData.memberSince : yr; })() : 'N/A'}</div>
+                  {isOwnProfile && firebaseUser?.email && <div className="flex items-center gap-3"><Mail className="w-4 h-4 text-[#6B6860] shrink-0" /> {firebaseUser.email}</div>}
+                  <div className="flex items-center gap-3"><Globe className="w-4 h-4 text-[#6B6860] shrink-0" /> <a href={profileData.website || "#"} target="_blank" rel="noopener noreferrer" className="text-[#C8A96A] hover:underline">{profileData.website}</a></div>
                 </div>
 
                 <div className="mt-6">
@@ -444,7 +928,7 @@ const Profile = () => {
                     {profileData.specializations.map(s => (
                       <span key={s} className="px-2.5 py-1 border border-[#C8A96A]/30 rounded-full font-sans text-[12px] text-[#1A1A1A]">{s}</span>
                     ))}
-                    {isOwnProfile && <span className="px-2.5 py-1 border border-dashed border-[#C8A96A] rounded-full font-sans text-[12px] text-[#C8A96A] cursor-pointer hover:bg-[#C8A96A]/10">+ Add</span>}
+                    {isOwnProfile && <span onClick={() => setActiveTab('settings')} className="px-2.5 py-1 border border-dashed border-[#C8A96A] rounded-full font-sans text-[12px] text-[#C8A96A] cursor-pointer hover:bg-[#C8A96A]/10">+ Add</span>}
                   </div>
                 </div>
 
@@ -462,16 +946,28 @@ const Profile = () => {
               <div className="bg-white border border-[#C8A96A]/20 rounded-[12px] p-5 shadow-sm">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-mono text-[10px] text-[#C8A96A] tracking-[0.15em]">CONNECTIONS</h3>
-                  <span className="font-mono text-[11px] text-[#6B6860]">{profileData.connections} total</span>
+                  <span className="font-mono text-[11px] text-[#6B6860]">{connections.length} total</span>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
-                  {[...Array(6)].map((_, i) => (
-                    <div key={i} className="aspect-square bg-[#EDEBE6] rounded-full border border-[#C8A96A]/20 cursor-pointer hover:border-[#C8A96A] transition-colors"></div>
+                  {connections.slice(0, 6).map((conn) => (
+                    <Link 
+                      key={conn.id} 
+                      to={`/profile/${conn.username}`}
+                      title={`@${conn.username}`}
+                      className="aspect-square rounded-full overflow-hidden border border-[#C8A96A]/20 cursor-pointer hover:border-[#C8A96A] transition-colors flex items-center justify-center bg-[#EDEBE6]"
+                    >
+                      <AvatarDisplay avatarUrl={conn.avatar_url} displayName={conn.display_name} username={conn.username} size={48} />
+                    </Link>
                   ))}
+                  {connections.length === 0 && (
+                    <div className="col-span-3 py-4 text-center font-sans text-[12px] text-[#6B6860]">
+                      No connections yet
+                    </div>
+                  )}
                 </div>
                 {isOwnProfile && (
                   <div className="mt-4 pt-3 border-t border-[#C8A96A]/10 text-center">
-                    <a href="#" className="font-sans text-[12px] text-[#C8A96A] hover:underline">2 pending requests</a>
+                    <span className="font-sans text-[12px] text-[#6B6860]">0 pending requests</span>
                   </div>
                 )}
               </div>
@@ -496,7 +992,6 @@ const Profile = () => {
             </div>
           </div>
 
-          {/* RIGHT CONTENT AREA */}
           <div className="flex-1 min-w-0">
             {/* Tab Bar */}
             <div className="sticky top-[70px] z-30 bg-[#F5F3EF]/90 backdrop-blur-md border-b border-[#C8A96A]/15 h-[48px] flex items-end px-2 overflow-x-auto no-scrollbar">
@@ -526,8 +1021,8 @@ const Profile = () => {
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
                 >
-                  {activeTab === 'overview' && <OverviewTab isOwnProfile={isOwnProfile} />}
-                  {activeTab === 'repositories' && <RepositoriesTab isOwnProfile={isOwnProfile} />}
+                  {activeTab === 'overview' && <OverviewTab isOwnProfile={isOwnProfile} activityMap={activityMap} />}
+                  {activeTab === 'repositories' && <RepositoriesTab isOwnProfile={isOwnProfile} projects={projects} loading={loadingProjects} username={profileData?.handle} />}
                   {activeTab === 'saved' && <div>Saved Tab Content...</div>}
                   {activeTab === 'insights' && isOwnProfile && <InsightsTab />}
                   {activeTab === 'settings' && isOwnProfile && <SettingsTab />}
@@ -572,26 +1067,105 @@ const Profile = () => {
               className="w-full max-w-md bg-white rounded-[16px] p-8 border border-[#cc4444]/30 shadow-2xl"
             >
               <div className="flex flex-col items-center text-center">
-                <div className="w-16 h-16 rounded-full bg-[#cc4444]/10 flex items-center justify-center mb-6">
-                  <Trash2 className="w-8 h-8 text-[#cc4444]" />
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-6 ${showReauth ? 'bg-[#C8A96A]/10' : 'bg-[#cc4444]/10'}`}>
+                  {showReauth ? (
+                    <Lock className={`w-8 h-8 text-[#C8A96A]`} />
+                  ) : (
+                    <Trash2 className="w-8 h-8 text-[#cc4444]" />
+                  )}
                 </div>
-                <h2 className="font-serif text-[24px] text-[#1A1A1A] mb-3">Delete Account?</h2>
-                <p className="font-sans text-[14px] text-[#6B6860] mb-8 leading-relaxed">
-                  This action is permanent and cannot be undone. All your repositories, designs, and contributions will be lost forever.
+                
+                <h2 className="font-serif text-[24px] text-[#1A1A1A] mb-3">
+                  {showReauth ? 'Verify Identity' : 'Delete Account?'}
+                </h2>
+                
+                <p className="font-sans text-[14px] text-[#6B6860] mb-6 leading-relaxed">
+                  {showReauth 
+                    ? 'For security reasons, please reauthenticate to confirm ownership before permanent account deletion.' 
+                    : 'This action is permanent and cannot be undone. All your repositories, designs, and contributions will be lost forever.'}
                 </p>
+
+                {deleteError && (
+                  <div className="w-full text-left bg-[#cc4444]/10 border border-[#cc4444]/20 rounded-md p-3 mb-4 text-[#cc4444] font-sans text-[12px]">
+                    {deleteError}
+                  </div>
+                )}
+
+                {showReauth && authProvider === 'email' && (
+                  <div className="w-full text-left mb-6">
+                    <label className="block text-sans text-[12px] font-medium text-[#6B6860] mb-1.5">Confirm Password</label>
+                    <input 
+                      type="password" 
+                      value={reauthPassword}
+                      onChange={e => setReauthPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      className="w-full h-[46px] bg-white border border-[#C8A96A]/20 rounded-[8px] px-[14px] font-sans text-[14px] focus:outline-none focus:border-[#C8A96A] text-[#1A1A1A]"
+                      disabled={isDeleting}
+                    />
+                    {reauthError && (
+                      <p className="text-[#cc4444] text-[12px] font-sans mt-2">{reauthError}</p>
+                    )}
+                  </div>
+                )}
+
+                {showReauth && authProvider === 'google' && reauthError && (
+                  <div className="w-full text-left bg-[#cc4444]/10 border border-[#cc4444]/20 rounded-md p-3 mb-4 text-[#cc4444] font-sans text-[12px]">
+                    {reauthError}
+                  </div>
+                )}
+
                 <div className="flex flex-col w-full gap-3">
-                  <button 
-                    onClick={handleDeleteAccount}
-                    className="w-full py-3 bg-[#cc4444] text-white rounded-md font-serif font-medium text-[16px] hover:bg-[#aa2222] transition-colors"
-                  >
-                    Yes, Delete My Account
-                  </button>
-                  <button 
-                    onClick={() => setShowDeleteConfirm(false)}
-                    className="w-full py-3 border border-[#C8A96A]/20 text-[#1A1A1A] rounded-md font-sans text-[15px] hover:bg-[#F5F3EF] transition-colors"
-                  >
-                    Keep My Account
-                  </button>
+                  {showReauth ? (
+                    <>
+                      {authProvider === 'email' ? (
+                        <button 
+                          onClick={handleReauthenticateAndDelete}
+                          disabled={isDeleting}
+                          className="w-full py-3 bg-[#cc4444] text-white rounded-md font-serif font-medium text-[16px] hover:bg-[#aa2222] transition-colors disabled:opacity-50"
+                        >
+                          {isDeleting ? 'Deleting...' : 'Verify & Delete Account'}
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={handleReauthenticateAndDelete}
+                          disabled={isDeleting}
+                          className="w-full py-3 bg-[#C8A96A] text-[#1A1A1A] rounded-md font-sans font-medium text-[16px] hover:bg-[#A8894A] transition-colors disabled:opacity-50"
+                        >
+                          {isDeleting ? 'Deleting...' : 'Reauthenticate with Google'}
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => {
+                          setShowDeleteConfirm(false);
+                          setShowReauth(false);
+                          setReauthPassword('');
+                          setReauthError(null);
+                          setDeleteError(null);
+                        }}
+                        disabled={isDeleting}
+                        className="w-full py-3 border border-[#C8A96A]/20 text-[#1A1A1A] rounded-md font-sans text-[15px] hover:bg-[#F5F3EF] transition-colors disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button 
+                        onClick={handleDeleteAccount}
+                        disabled={isDeleting}
+                        className="w-full py-3 bg-[#cc4444] text-white rounded-md font-serif font-medium text-[16px] hover:bg-[#aa2222] transition-colors disabled:opacity-50"
+                      >
+                        {isDeleting ? 'Deleting...' : 'Yes, Delete My Account'}
+                      </button>
+                      <button 
+                        onClick={() => setShowDeleteConfirm(false)}
+                        disabled={isDeleting}
+                        className="w-full py-3 border border-[#C8A96A]/20 text-[#1A1A1A] rounded-md font-sans text-[15px] hover:bg-[#F5F3EF] transition-colors disabled:opacity-50"
+                      >
+                        Keep My Account
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </motion.div>

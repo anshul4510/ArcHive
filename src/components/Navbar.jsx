@@ -2,36 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, Hexagon, User, Layout, Settings, LogOut } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import AvatarDisplay from './AvatarDisplay';
+import { useToast } from './ToastContext';
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [isDarkBg, setIsDarkBg] = useState(true);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userName, setUserName] = useState('Arch. Julian');
-  const [userHandle, setUserHandle] = useState('anshul_arch');
+  const { isAuthenticated, loading, displayName, username, avatarUrl, signOut } = useAuth();
+  const { toast } = useToast();
+
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Auth Check
-    const checkAuth = () => {
-      const authData = localStorage.getItem('archive_auth');
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData);
-          setIsLoggedIn(true);
-          setUserName(parsed.name || 'User');
-          setUserHandle(parsed.handle || 'anshul_arch');
-        } catch(e) {
-          setIsLoggedIn(false);
-        }
-      } else {
-        setIsLoggedIn(false);
-      }
-    };
-    checkAuth();
 
     const handleScroll = () => {
       const scrollPos = window.scrollY;
@@ -88,11 +74,14 @@ const Navbar = () => {
   
   const btnBg = 'bg-accent-gold text-[#0E0E0C] hover:bg-accent-gold-dim';
 
-  const handleLogout = () => {
-    localStorage.removeItem('archive_auth');
-    setIsLoggedIn(false);
-    setDropdownOpen(false);
-    navigate('/login');
+  const handleLogout = async () => {
+    const { error } = await signOut();
+    if (error) {
+      toast.error('Sign out failed.');
+    } else {
+      setDropdownOpen(false);
+      navigate('/login');
+    }
   };
 
   return (
@@ -135,14 +124,24 @@ const Navbar = () => {
                 </Link>
               );
             })}
-            {isLoggedIn ? (
+            {loading ? (
+              <div className="w-[120px] h-[32px] rounded-full bg-white/10 relative overflow-hidden flex-shrink-0 border border-transparent">
+                <motion.div 
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-[#C8A96A]/30 to-transparent w-[200%]"
+                  animate={{ x: ['-100%', '100%'] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                />
+              </div>
+            ) : isAuthenticated ? (
               <div className="relative">
                 <button 
                   onClick={() => setDropdownOpen(!dropdownOpen)}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-transparent hover:border-accent-gold/30 transition-colors"
                 >
-                  <img src={`https://ui-avatars.com/api/?name=${userName}&background=C8A96A&color=0E0E0C`} alt="Avatar" className="w-8 h-8 rounded-full border border-accent-gold/50" />
-                  <span className={`font-sans text-[13px] font-medium ${textColor}`}>{userName}</span>
+                  <AvatarDisplay avatarUrl={avatarUrl} displayName={displayName} username={username} size={32} />
+                  <span className={`font-sans text-[13px] font-medium ${textColor}`}>
+                    {username && `@${username}`}
+                  </span>
                 </button>
                 <AnimatePresence>
                   {dropdownOpen && (
@@ -151,9 +150,13 @@ const Navbar = () => {
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.97, y: 10 }}
                       transition={{ duration: 0.15 }}
-                      className="absolute right-0 top-full mt-2 w-[170px] bg-white border border-accent-gold rounded-[10px] shadow-[0_8px_24px_rgba(0,0,0,0.1)] overflow-hidden z-50 flex flex-col py-1"
+                      className="absolute right-0 top-full mt-2 w-[190px] bg-white border border-accent-gold rounded-[10px] shadow-[0_8px_24px_rgba(0,0,0,0.1)] overflow-hidden z-50 flex flex-col py-1"
                     >
-                      <Link to="/profile/me" onClick={() => setDropdownOpen(false)} className="h-9 px-4 flex items-center font-sans text-[13px] text-text-primary hover:bg-accent-gold/10 transition-colors">
+                      <div className="px-4 py-2 flex items-center border-b border-border-light mb-1 pointer-events-none">
+                        <AvatarDisplay avatarUrl={avatarUrl} displayName={displayName} username={username} size={24} />
+                        <span className="ml-2 font-sans text-[13px] font-medium text-text-primary truncate">{displayName}</span>
+                      </div>
+                      <Link to={`/profile/${username || 'me'}`} onClick={() => setDropdownOpen(false)} className="h-9 px-4 flex items-center font-sans text-[13px] text-text-primary hover:bg-accent-gold/10 transition-colors">
                         <User className="w-3.5 h-3.5 mr-2.5 text-accent-gold" /> My Profile
                       </Link>
                       <Link to="/studio" onClick={() => setDropdownOpen(false)} className="h-9 px-4 flex items-center font-sans text-[13px] text-text-primary hover:bg-accent-gold/10 transition-colors">
@@ -232,11 +235,11 @@ const Navbar = () => {
                 transition={{ delay: navLinks.length * 0.1 }}
               >
                 <Link 
-                  to={isLoggedIn ? '/profile' : '/login'}
+                  to={isAuthenticated ? `/profile/${username}` : '/login'}
                   onClick={() => setMobileMenuOpen(false)}
                   className="mt-8 bg-accent-gold text-bg-dark px-8 py-3 rounded-buttons font-sans font-medium text-lg mx-auto inline-block"
                 >
-                  {isLoggedIn ? userName : 'Login / Sign Up'}
+                  {isAuthenticated ? displayName : 'Login / Sign Up'}
                 </Link>
               </motion.div>
             </div>

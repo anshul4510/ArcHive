@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
+import AvatarDisplay from '../components/AvatarDisplay';
+import { getUserProjects, createProject, updateProject } from '../lib/projects';
+import { supabase } from '../lib/supabase';
 import { 
   Hexagon, Search, Plus, Folder, Clock, Star, GitBranch, GitCommit, FileText, 
   GitCompare, GitFork, Eye, MessageSquare, Settings, HelpCircle, LayoutGrid,
@@ -11,7 +15,7 @@ import {
   Building2, Ruler, BookOpen, Package, Link2
 } from 'lucide-react';
 
-export const TYPE_COLORS = {
+const TYPE_COLORS = {
   'Project': { icon: <Building2 className="w-3 h-3" />, color: '#C8A96A', bg: 'rgba(200,169,106,0.1)', border: 'rgba(200,169,106,0.3)' },
   'Case Study': { icon: <Ruler className="w-3 h-3" />, color: '#38b4b4', bg: 'rgba(56,180,180,0.1)', border: 'rgba(56,180,180,0.3)' },
   'Journal': { icon: <BookOpen className="w-3 h-3" />, color: '#c8a03c', bg: 'rgba(200,160,60,0.1)', border: 'rgba(200,160,60,0.3)' },
@@ -20,13 +24,6 @@ export const TYPE_COLORS = {
 };
 
 // --- MOCK DATA ---
-const REPOS = [
-  { id: '1', name: 'the-meridian-residence', title: 'The Meridian Residence', visibility: 'Public', status: 'Published', repoType: 'Project', lastEdit: '2d ago', commits: 3, collaborators: 2, files: { pdf: 4, img: 12, dwg: 2 } },
-  { id: '2', name: 'desert-cooling-strategies', title: 'Desert Cooling Strategies', visibility: 'Public', status: 'Published', repoType: 'Case Study', lastEdit: '1w ago', commits: 12, collaborators: 0, files: { pdf: 2, img: 5, dwg: 1 } },
-  { id: '3', name: 'future-of-timber', title: 'The Future of Mass Timber', visibility: 'Private', status: 'Draft', repoType: 'Journal', lastEdit: '3h ago', commits: 45, collaborators: 4, files: { pdf: 0, img: 8, dwg: 0 } },
-  { id: '4', name: 'res-bim-families', title: 'Residential BIM Families', visibility: 'Public', status: 'Published', repoType: 'Resource', lastEdit: '2w ago', commits: 2, collaborators: 0, files: { pdf: 1, img: 2, dwg: 15 } },
-  { id: '5', name: 'ibc-2024', title: 'International Building Code 2024', visibility: 'Public', status: 'Published', repoType: 'Reference', lastEdit: '1m ago', commits: 1, collaborators: 0, files: { pdf: 1, img: 0, dwg: 0 } }
-];
 
 const FILE_GROUPS = [
   { name: 'Cover Image', files: [{ name: 'hero-render.jpg', type: 'image', size: '4.2 MB' }] },
@@ -45,19 +42,66 @@ const HISTORY = [
 // --- COMPONENTS ---
 
 const Dashboard = () => {
+  const { firebaseUser, displayName, username: authUsername, avatarUrl } = useAuth();
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState('grid');
   const [activeFilter, setActiveFilter] = useState('All Repositories');
-  
-  const filteredRepos = REPOS.filter(repo => {
+  const [repos, setRepos] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (firebaseUser?.uid) {
+      getUserProjects(firebaseUser.uid)
+        .then(({ data }) => {
+          if (data) {
+            setRepos(data);
+          }
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error(err);
+          setLoading(false);
+        });
+    }
+  }, [firebaseUser?.uid]);
+
+  // Sidebar count calculations
+  const allCount = repos.length;
+  const draftCount = repos.filter(r => r.status?.toLowerCase() === 'draft').length;
+  const publishedCount = repos.filter(r => r.status?.toLowerCase() === 'published').length;
+  const privateCount = repos.filter(r => r.visibility?.toLowerCase() === 'private').length;
+  const forkedCount = repos.filter(r => r.is_fork).length;
+  const collabCount = 0;
+  const starredCount = 0;
+
+  const projectCount = repos.filter(r => r.content_type?.toLowerCase() === 'project').length;
+  const caseStudyCount = repos.filter(r => r.content_type?.toLowerCase() === 'case_study').length;
+  const journalCount = repos.filter(r => r.content_type?.toLowerCase() === 'journal').length;
+  const resourceCount = repos.filter(r => r.content_type?.toLowerCase() === 'resource').length;
+  const referenceCount = repos.filter(r => r.content_type?.toLowerCase() === 'reference').length;
+
+  const filteredRepos = repos.filter(repo => {
+    const status = repo.status?.toLowerCase();
+    const visibility = repo.visibility?.toLowerCase();
+    const contentType = repo.content_type?.toLowerCase();
+
     if (activeFilter === 'All Repositories') return true;
-    if (activeFilter === 'Drafts') return repo.status === 'Draft';
-    if (activeFilter === 'Published') return repo.status === 'Published';
-    if (activeFilter === 'Private') return repo.visibility === 'Private';
-    if (['Project', 'Case Study', 'Journal', 'Resource', 'Reference'].includes(activeFilter)) return repo.repoType === activeFilter;
+    if (activeFilter === 'Drafts') return status === 'draft';
+    if (activeFilter === 'Published') return status === 'published';
+    if (activeFilter === 'Private') return visibility === 'private';
+    if (activeFilter === 'Forked') return !!repo.is_fork;
+    if (activeFilter === 'Collaborations') return false;
+    if (activeFilter === 'Starred') return false;
+    
+    if (activeFilter === 'Project') return contentType === 'project';
+    if (activeFilter === 'Case Study') return contentType === 'case_study';
+    if (activeFilter === 'Journal') return contentType === 'journal';
+    if (activeFilter === 'Resource') return contentType === 'resource';
+    if (activeFilter === 'Reference') return contentType === 'reference';
+
     return true;
   });
-  
+
   return (
     <div className="min-h-screen bg-[#F5F3EF] relative text-[#1A1A1A] flex flex-col">
       <div className="absolute inset-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'103.92\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M30 0L60 17.32V51.96L30 69.28L0 51.96V17.32L30 0ZM30 103.92L60 86.6V51.96L30 69.28L0 86.6V103.92Z\' fill=\'none\' stroke=\'%23C8A96A\' stroke-width=\'1\'/%3E%3C/svg%3E")' }}></div>
@@ -66,7 +110,7 @@ const Dashboard = () => {
       <div className="h-[64px] bg-white border-b border-[#C8A96A]/10 px-10 flex items-center justify-between relative z-10 shrink-0">
         <div className="flex items-center gap-3">
           <Hexagon className="w-5 h-5 text-[#C8A96A]" strokeWidth={2} />
-          <h2 className="font-serif text-[18px] text-[#1A1A1A] tracking-tight">Personal Workspace</h2>
+          <h2 className="font-serif text-[18px] text-[#1A1A1A] tracking-tight">{displayName || authUsername}'s Workspace</h2>
         </div>
         
         <div className="flex items-center gap-6">
@@ -82,16 +126,19 @@ const Dashboard = () => {
           <button onClick={() => navigate('/studio/new')} className="bg-[#C8A96A] text-white font-sans text-[12px] font-bold px-5 h-9 rounded-[4px] hover:brightness-110 transition-all flex items-center gap-2 shadow-sm uppercase tracking-wider">
             <Plus className="w-4 h-4" /> New Repository
           </button>
+          
+          <div onClick={() => navigate('/profile/me')} className="flex items-center gap-2 cursor-pointer group ml-4 border-l border-[#C8A96A]/20 pl-6">
+            <AvatarDisplay size={28} avatarUrl={avatarUrl} displayName={displayName} username={authUsername} />
+            <span className="font-mono text-[12px] text-gray-500 group-hover:text-[#C8A96A] transition-colors">@{authUsername}</span>
+          </div>
         </div>
       </div>
 
       {/* STATS STRIP */}
       <div className="h-[56px] bg-[#C8A96A]/[0.04] border-b border-[#C8A96A]/10 px-10 flex items-center gap-10 shrink-0 relative z-10">
-        <div className="font-mono text-[12px] text-[#1A1A1A] flex items-center gap-2"><Hexagon className="w-3 h-3 text-[#C8A96A]" /> 28 Repositories</div>
+        <div className="font-mono text-[12px] text-[#1A1A1A] flex items-center gap-2"><Hexagon className="w-3 h-3 text-[#C8A96A]" /> {allCount} Repositories</div>
         <div className="text-gray-300">&middot;</div>
-        <div className="font-mono text-[12px] text-[#1A1A1A] flex items-center gap-2"><Hexagon className="w-3 h-3 text-[#C8A96A]" /> 4 Drafts</div>
-        <div className="text-gray-300">&middot;</div>
-        <div className="font-mono text-[12px] text-[#1A1A1A] flex items-center gap-2"><Hexagon className="w-3 h-3 text-[#C8A96A]" /> 6 Collaborations</div>
+        <div className="font-mono text-[12px] text-[#1A1A1A] flex items-center gap-2"><Hexagon className="w-3 h-3 text-[#C8A96A]" /> {draftCount} Drafts</div>
         <div className="text-gray-300">&middot;</div>
         <div className="font-mono text-[12px] text-gray-500 flex items-center gap-2"><Hexagon className="w-3 h-3 text-gray-400" /> Last active: Today</div>
       </div>
@@ -103,13 +150,13 @@ const Dashboard = () => {
           <div className="px-5 font-mono text-[10px] text-gray-400 uppercase tracking-wider mb-2">Navigation</div>
           <div className="flex flex-col">
             {[
-              { label: 'All Repositories', icon: <Hexagon className="w-4 h-4" />, count: 28, active: true },
-              { label: 'Drafts', icon: <Edit3 className="w-4 h-4" />, count: 4 },
-              { label: 'Published', icon: <ArrowRight className="w-4 h-4 -rotate-45" />, count: 18 },
-              { label: 'Private', icon: <Lock className="w-4 h-4" />, count: 6 },
-              { label: 'Forked', icon: <GitFork className="w-4 h-4" />, count: 3 },
-              { label: 'Collaborations', icon: <Users className="w-4 h-4" />, count: 6 },
-              { label: 'Starred', icon: <Star className="w-4 h-4" />, count: 12 },
+              { label: 'All Repositories', icon: <Hexagon className="w-4 h-4" />, count: allCount },
+              { label: 'Drafts', icon: <Edit3 className="w-4 h-4" />, count: draftCount },
+              { label: 'Published', icon: <ArrowRight className="w-4 h-4 -rotate-45" />, count: publishedCount },
+              { label: 'Private', icon: <Lock className="w-4 h-4" />, count: privateCount },
+              { label: 'Forked', icon: <GitFork className="w-4 h-4" />, count: forkedCount },
+              { label: 'Collaborations', icon: <Users className="w-4 h-4" />, count: collabCount },
+              { label: 'Starred', icon: <Star className="w-4 h-4" />, count: starredCount },
               { label: 'Archived', icon: <Trash2 className="w-4 h-4" /> }
             ].map((item, i) => (
               <div 
@@ -119,7 +166,7 @@ const Dashboard = () => {
               >
                 <div className={`mr-3 ${activeFilter === item.label ? 'text-[#C8A96A]' : 'text-gray-400 group-hover:text-[#C8A96A]'}`}>{item.icon}</div>
                 <span className="font-sans text-[13px]">{item.label}</span>
-                {item.count && (
+                {typeof item.count === 'number' && (
                   <div className="ml-auto bg-[#C8A96A]/15 text-[#C8A96A] font-mono text-[10px] h-[18px] px-1.5 rounded-sm flex items-center">
                     {item.count}
                   </div>
@@ -133,11 +180,11 @@ const Dashboard = () => {
           <div className="px-5 font-mono text-[10px] text-gray-400 uppercase tracking-wider mb-2 mt-2">By Type</div>
           <div className="flex flex-col">
             {[
-              { label: 'Projects', filter: 'Project', icon: <Building2 className="w-4 h-4" />, count: 12 },
-              { label: 'Case Studies', filter: 'Case Study', icon: <Ruler className="w-4 h-4" />, count: 5 },
-              { label: 'Journals', filter: 'Journal', icon: <BookOpen className="w-4 h-4" />, count: 4 },
-              { label: 'Resources', filter: 'Resource', icon: <Package className="w-4 h-4" />, count: 4 },
-              { label: 'References', filter: 'Reference', icon: <Link2 className="w-4 h-4" />, count: 3 }
+              { label: 'Projects', filter: 'Project', icon: <Building2 className="w-4 h-4" />, count: projectCount },
+              { label: 'Case Studies', filter: 'Case Study', icon: <Ruler className="w-4 h-4" />, count: caseStudyCount },
+              { label: 'Journals', filter: 'Journal', icon: <BookOpen className="w-4 h-4" />, count: journalCount },
+              { label: 'Resources', filter: 'Resource', icon: <Package className="w-4 h-4" />, count: resourceCount },
+              { label: 'References', filter: 'Reference', icon: <Link2 className="w-4 h-4" />, count: referenceCount }
             ].map((item, i) => (
               <div 
                 key={i} 
@@ -146,7 +193,7 @@ const Dashboard = () => {
               >
                 <div className={`mr-3 ${activeFilter === item.filter ? 'text-[#C8A96A]' : 'text-gray-400 group-hover:text-[#C8A96A]'}`}>{item.icon}</div>
                 <span className="font-sans text-[13px]">{item.label}</span>
-                {item.count && (
+                {typeof item.count === 'number' && (
                   <div className="ml-auto bg-[#C8A96A]/15 text-[#C8A96A] font-mono text-[10px] h-[18px] px-1.5 rounded-sm flex items-center">
                     {item.count}
                   </div>
@@ -157,19 +204,21 @@ const Dashboard = () => {
 
           <div className="my-4 mx-5 h-[0.5px] bg-[#C8A96A]/40"></div>
 
-
-
           <div className="px-5 font-mono text-[10px] text-gray-400 uppercase tracking-wider mb-2 mt-2">Recent</div>
           <div className="flex flex-col px-3 gap-1">
-            {REPOS.slice(0, 4).map((repo, i) => (
-              <Link to={`/studio/${repo.id}`} key={i} className="flex flex-col px-2 py-1.5 rounded hover:bg-[#C8A96A]/[0.05] group">
-                <div className="flex items-center gap-1.5">
-                  <Hexagon className="w-3 h-3 text-gray-400 group-hover:text-[#C8A96A]" />
-                  <span className="font-sans text-[12px] text-gray-700 truncate group-hover:text-[#C8A96A] transition-colors">{repo.name}</span>
-                </div>
-                <span className="font-mono text-[10px] text-gray-400 pl-[18px]">2h ago</span>
-              </Link>
-            ))}
+            {repos.length === 0 ? (
+              <div className="px-2 py-1.5 font-sans text-[12px] text-gray-400 italic">No recent activity</div>
+            ) : (
+              repos.slice(0, 4).map((repo, i) => (
+                <Link to={`/studio/${repo.id}`} key={i} className="flex flex-col px-2 py-1.5 rounded hover:bg-[#C8A96A]/[0.05] group">
+                  <div className="flex items-center gap-1.5">
+                    <Hexagon className="w-3 h-3 text-gray-400 group-hover:text-[#C8A96A]" />
+                    <span className="font-sans text-[12px] text-gray-700 truncate group-hover:text-[#C8A96A] transition-colors">{repo.repo_name || repo.title}</span>
+                  </div>
+                  <span className="font-mono text-[10px] text-gray-400 pl-[18px]">{new Date(repo.updated_at || repo.created_at).toLocaleDateString()}</span>
+                </Link>
+              ))
+            )}
           </div>
         </div>
 
@@ -206,67 +255,77 @@ const Dashboard = () => {
           </div>
 
           {/* CARDS GRID */}
-          <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}>
-            {filteredRepos.map(repo => (
-              <div onClick={() => navigate(`/studio/${repo.id}`)} key={repo.id} className="bg-white border border-[#C8A96A]/20 rounded-[12px] p-5 cursor-pointer group hover:-translate-y-1 hover:border-[#C8A96A]/45 hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all duration-200 relative overflow-hidden flex flex-col">
-                <Hexagon className="absolute -bottom-6 -right-6 w-[120px] h-[120px] text-[#C8A96A]/5 transition-transform group-hover:scale-110 pointer-events-none" />
-                
-                <div className="flex items-start justify-between relative z-10">
-                  <div className="flex items-center gap-2">
-                    <Hexagon className="w-5 h-5 text-[#C8A96A]" />
-                    {repo.repoType && TYPE_COLORS[repo.repoType] && (
-                      <div className="px-2 py-0.5 rounded-[4px] flex items-center gap-1.5 border font-mono text-[9px] uppercase tracking-wider" 
-                           style={{ backgroundColor: TYPE_COLORS[repo.repoType].bg, borderColor: TYPE_COLORS[repo.repoType].border, color: TYPE_COLORS[repo.repoType].color }}>
-                        {TYPE_COLORS[repo.repoType].icon} {repo.repoType}
-                      </div>
-                    )}
-                  </div>
-                  <div className={`px-2.5 py-0.5 rounded-full border font-sans text-[11px] font-medium tracking-wide flex items-center ${
-                    repo.status === 'Published' ? 'bg-[#4A9A4A]/10 text-[#4A9A4A] border-[#4A9A4A]/30' :
-                    repo.status === 'Draft' ? 'bg-[#C8A96A]/10 text-[#C8A96A] border-[#C8A96A]/30' :
-                    'bg-gray-100 text-gray-500 border-gray-200'
-                  }`}>
-                    {repo.status}
-                  </div>
-                </div>
-
-                <h3 className="font-serif text-[16px] text-[#1A1A1A] mt-2.5 relative z-10 group-hover:text-[#C8A96A] transition-colors">{repo.title}</h3>
-                <p className="font-sans text-[13px] text-gray-500 mt-1 line-clamp-2 relative z-10">
-                  Main repository for {repo.title.toLowerCase()}. Contains all active documents, models, and presentation assets.
-                </p>
-
-                <div className="font-mono text-[11px] text-gray-400 mt-2.5 flex items-center gap-2 relative z-10">
-                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Last edited: {repo.lastEdit}</span> &middot;
-                  <span className="flex items-center gap-1"><GitCommit className="w-3 h-3" /> {repo.commits} commits</span>
-                </div>
-
-                <div className="flex gap-2 mt-3 relative z-10">
-                  {repo.files.pdf > 0 && <span className="bg-red-500/10 border border-red-500/30 text-red-600 font-mono text-[10px] px-2 py-0.5 rounded-full">PDF &times;{repo.files.pdf}</span>}
-                  {repo.files.img > 0 && <span className="bg-blue-500/10 border border-blue-500/30 text-blue-600 font-mono text-[10px] px-2 py-0.5 rounded-full">IMG &times;{repo.files.img}</span>}
-                  {repo.files.dwg > 0 && <span className="bg-amber-500/10 border border-amber-500/30 text-amber-600 font-mono text-[10px] px-2 py-0.5 rounded-full">DWG &times;{repo.files.dwg}</span>}
-                </div>
-
-                <div className="mt-auto pt-3 border-t border-[#C8A96A]/15 flex items-center justify-between relative z-10">
-                  <div className="flex items-center">
-                    {repo.collaborators > 0 ? (
-                      <div className="flex items-center">
-                        <div className="w-6 h-6 rounded-full overflow-hidden border border-white -ml-1 first:ml-0 relative z-[3]"><img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop" alt="c1" /></div>
-                        <div className="w-6 h-6 rounded-full overflow-hidden border border-white -ml-1.5 relative z-[2]"><img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop" alt="c2" /></div>
-                        <span className="font-sans text-[11px] text-gray-400 ml-2">You + {repo.collaborators} others</span>
-                      </div>
-                    ) : (
-                      <span className="font-sans text-[11px] text-gray-400">Personal Repository</span>
-                    )}
-                  </div>
-                  <div className="flex gap-1">
-                    <button className="w-7 h-7 rounded flex items-center justify-center text-gray-400 hover:text-[#C8A96A] hover:bg-[#C8A96A]/10 transition-colors"><Edit3 className="w-4 h-4" /></button>
-                    <button className="w-7 h-7 rounded flex items-center justify-center text-gray-400 hover:text-[#C8A96A] hover:bg-[#C8A96A]/10 transition-colors"><ArrowRight className="w-4 h-4 -rotate-45" /></button>
-                    <button className="w-7 h-7 rounded flex items-center justify-center text-gray-400 hover:text-[#C8A96A] hover:bg-[#C8A96A]/10 transition-colors"><MoreHorizontal className="w-4 h-4" /></button>
-                  </div>
-                </div>
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <Hexagon className="w-12 h-12 text-[#C8A96A] animate-spin mb-4" />
+              <p className="font-sans text-[14px] text-gray-500">Loading repositories...</p>
+            </div>
+          ) : filteredRepos.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="w-20 h-20 rounded-full bg-[#C8A96A]/10 flex items-center justify-center mb-6">
+                <Hexagon className="w-10 h-10 text-[#C8A96A]" />
               </div>
-            ))}
-          </div>
+              <h3 className="font-serif text-[24px] text-[#1A1A1A] mb-3">Your workspace is empty</h3>
+              <p className="font-sans text-[14px] text-gray-500 max-w-[400px] mx-auto mb-8">
+                Start building your architectural portfolio by creating your first repository.
+              </p>
+              <button onClick={() => navigate('/studio/new')} className="w-[300px] h-[180px] border-2 border-dashed border-[#C8A96A]/30 rounded-[12px] flex flex-col items-center justify-center text-gray-400 hover:border-[#C8A96A] hover:text-[#C8A96A] hover:bg-[#C8A96A]/[0.02] transition-all group">
+                <Plus className="w-8 h-8 mb-3 group-hover:scale-110 transition-transform" />
+                <span className="font-sans text-[14px] font-medium">Create New Repository</span>
+              </button>
+            </div>
+          ) : (
+            <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}>
+              {filteredRepos.map(repo => {
+                const displayType = repo.content_type === 'case_study' ? 'Case Study' :
+                                    repo.content_type === 'journal' ? 'Journal' :
+                                    repo.content_type === 'resource' ? 'Resource' :
+                                    repo.content_type === 'reference' ? 'Reference' : 'Project';
+                const displayStatus = repo.status === 'published' ? 'Published' : 'Draft';
+                return (
+                  <div onClick={() => navigate(`/studio/${repo.id}`)} key={repo.id} className="bg-white border border-[#C8A96A]/20 rounded-[12px] p-5 cursor-pointer group hover:-translate-y-1 hover:border-[#C8A96A]/45 hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all duration-200 relative overflow-hidden flex flex-col">
+                    <Hexagon className="absolute -bottom-6 -right-6 w-[120px] h-[120px] text-[#C8A96A]/5 transition-transform group-hover:scale-110 pointer-events-none" />
+                    
+                    <div className="flex items-start justify-between relative z-10">
+                      <div className="flex items-center gap-2">
+                        <Hexagon className="w-5 h-5 text-[#C8A96A]" />
+                        {displayType && TYPE_COLORS[displayType] && (
+                          <div className="px-2 py-0.5 rounded-[4px] flex items-center gap-1.5 border font-mono text-[9px] uppercase tracking-wider" 
+                               style={{ backgroundColor: TYPE_COLORS[displayType].bg, borderColor: TYPE_COLORS[displayType].border, color: TYPE_COLORS[displayType].color }}>
+                            {TYPE_COLORS[displayType].icon} {displayType}
+                          </div>
+                        )}
+                      </div>
+                      <div className={`px-2.5 py-0.5 rounded-full border font-sans text-[11px] font-medium tracking-wide flex items-center ${
+                        displayStatus === 'Published' ? 'bg-[#4A9A4A]/10 text-[#4A9A4A] border-[#4A9A4A]/30' :
+                        displayStatus === 'Draft' ? 'bg-[#C8A96A]/10 text-[#C8A96A] border-[#C8A96A]/30' :
+                        'bg-gray-100 text-gray-500 border-gray-200'
+                      }`}>
+                        {displayStatus}
+                      </div>
+                    </div>
+
+                    <h3 className="font-serif text-[16px] text-[#1A1A1A] mt-2.5 relative z-10 group-hover:text-[#C8A96A] transition-colors">{repo.title}</h3>
+                    <p className="font-sans text-[13px] text-gray-500 mt-1 line-clamp-2 relative z-10">
+                      {repo.description || `Main repository for ${repo.title.toLowerCase()}. Contains all active documents, models, and presentation assets.`}
+                    </p>
+
+                    <div className="font-mono text-[11px] text-gray-400 mt-2.5 flex items-center gap-2 relative z-10">
+                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Last edited: {new Date(repo.updated_at || repo.created_at).toLocaleDateString()}</span>
+                    </div>
+
+                    <div className="mt-auto pt-3 border-t border-[#C8A96A]/15 flex items-center justify-between relative z-10">
+                      <span className="font-sans text-[11px] text-gray-400">{repo.visibility === 'private' ? 'Private' : 'Public'} Repository</span>
+                      <div className="flex gap-1">
+                        <button className="w-7 h-7 rounded flex items-center justify-center text-gray-400 hover:text-[#C8A96A] hover:bg-[#C8A96A]/10 transition-colors"><Edit3 className="w-4 h-4" /></button>
+                        <button className="w-7 h-7 rounded flex items-center justify-center text-gray-400 hover:text-[#C8A96A] hover:bg-[#C8A96A]/10 transition-colors"><ArrowRight className="w-4 h-4 -rotate-45" /></button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
         </div>
       </div>
@@ -277,16 +336,81 @@ const Dashboard = () => {
 
 
 const Wizard = () => {
+  const { username: authUsername, displayName, avatarUrl, firebaseUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [step, setStep] = useState(0);
-  const [repoType, setRepoType] = useState('Project');
+  const [repoType, setRepoType] = useState(() => {
+    const t = location.state?.type;
+    if (t === 'casestudy') return 'Case Study';
+    if (t === 'journal') return 'Journal';
+    if (t === 'resource') return 'Resource';
+    return 'Project';
+  });
   const [isPublishing, setIsPublishing] = useState(false);
+  
+  // Controlled fields
+  const [repoName, setRepoName] = useState('');
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('Residential');
+  const [projectYear, setProjectYear] = useState(2026);
+  const [visibility, setVisibility] = useState('public');
+  const [allowForks, setAllowForks] = useState(true);
+  const [allowComments, setAllowComments] = useState(true);
+  const [markdown, setMarkdown] = useState('# Project Overview\n\nEnter your markdown documentation here...');
 
-  const handlePublish = () => {
+  useEffect(() => {
+    if (location.state?.type) {
+      setTimeout(() => setStep(1), 300);
+    }
+  }, [location.state]);
+
+  const handlePublish = async () => {
     setIsPublishing(true);
-    setTimeout(() => {
-      navigate('/studio/repo-123'); // Redirects to workspace editor
-    }, 1500);
+    
+    // Map content type display values to database lowercase/snake_case
+    const contentTypeMap = {
+      'Project': 'project',
+      'Case Study': 'case_study',
+      'Journal': 'journal',
+      'Resource': 'resource',
+      'Reference': 'reference'
+    };
+
+    const cleanRepoName = repoName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || 
+                          title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || 
+                          'untitled-repository';
+
+    const projectData = {
+      repoName: cleanRepoName,
+      title: title || 'Untitled Repository',
+      description: description || '',
+      contentType: contentTypeMap[repoType] || 'project',
+      category: category,
+      projectYear: parseInt(projectYear) || 2026,
+      visibility: visibility,
+      allowForks: allowForks,
+      allowComments: allowComments
+    };
+
+    try {
+      const { data, error } = await createProject(firebaseUser.uid, projectData);
+      if (error) {
+        console.error(error);
+        setIsPublishing(false);
+        alert('Failed to publish project: ' + error);
+      } else if (data) {
+        // Redirect to newly created workspace
+        setTimeout(() => {
+          navigate(`/studio/${data.id}`);
+        }, 1200);
+      }
+    } catch (err) {
+      console.error(err);
+      setIsPublishing(false);
+      alert('Error: ' + err.message);
+    }
   };
 
   const stepsList = [
@@ -380,27 +504,27 @@ const Wizard = () => {
 
                   <div className="flex flex-col gap-1.5">
                     <label className="font-sans text-[13px] font-medium text-[#1A1A1A]">Repository Name *</label>
-                    <input type="text" placeholder="the-meridian-residence" className="h-11 border border-gray-300 rounded-[6px] px-3 font-mono text-[14px] text-[#1A1A1A] outline-none focus:border-[#C8A96A] focus:ring-1 focus:ring-[#C8A96A]" />
-                    <span className="font-mono text-[11px] text-[#C8A96A] mt-1">archive.com/@anshul_arch/the-meridian-residence</span>
+                    <input type="text" value={repoName} onChange={(e) => setRepoName(e.target.value)} placeholder="the-meridian-residence" className="h-11 border border-gray-300 rounded-[6px] px-3 font-mono text-[14px] text-[#1A1A1A] outline-none focus:border-[#C8A96A] focus:ring-1 focus:ring-[#C8A96A]" />
+                    <span className="font-mono text-[11px] text-[#C8A96A] mt-1">archive.com/@{authUsername || 'username'}/{repoName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || 'repository-name'}</span>
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="font-sans text-[13px] font-medium text-[#1A1A1A]">Display Title *</label>
-                    <input type="text" placeholder="The Meridian Residence" className="h-11 border border-gray-300 rounded-[6px] px-3 font-serif text-[16px] text-[#1A1A1A] outline-none focus:border-[#C8A96A] focus:ring-1 focus:ring-[#C8A96A]" />
+                    <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="The Meridian Residence" className="h-11 border border-gray-300 rounded-[6px] px-3 font-serif text-[16px] text-[#1A1A1A] outline-none focus:border-[#C8A96A] focus:ring-1 focus:ring-[#C8A96A]" />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="font-sans text-[13px] font-medium text-[#1A1A1A]">Short Description *</label>
-                    <textarea rows="3" placeholder="Brief overview shown on project card..." className="border border-gray-300 rounded-[6px] p-3 font-sans text-[14px] text-[#1A1A1A] outline-none resize-none focus:border-[#C8A96A] focus:ring-1 focus:ring-[#C8A96A]" />
+                    <textarea rows="3" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Brief overview shown on project card..." className="border border-gray-300 rounded-[6px] p-3 font-sans text-[14px] text-[#1A1A1A] outline-none resize-none focus:border-[#C8A96A] focus:ring-1 focus:ring-[#C8A96A]" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1.5">
                       <label className="font-sans text-[13px] font-medium text-[#1A1A1A]">Category *</label>
-                      <select className="h-11 border border-gray-300 rounded-[6px] px-3 font-sans text-[14px] text-[#1A1A1A] outline-none bg-white focus:border-[#C8A96A] focus:ring-1 focus:ring-[#C8A96A]">
-                        <option>Residential</option><option>Commercial</option><option>Urban Planning</option>
+                      <select value={category} onChange={(e) => setCategory(e.target.value)} className="h-11 border border-gray-300 rounded-[6px] px-3 font-sans text-[14px] text-[#1A1A1A] outline-none bg-white focus:border-[#C8A96A] focus:ring-1 focus:ring-[#C8A96A]">
+                        <option>Residential</option><option>Commercial</option><option>Urban Planning</option><option>Interior</option><option>Landscape</option><option>Heritage</option><option>Mixed-Use</option>
                       </select>
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <label className="font-sans text-[13px] font-medium text-[#1A1A1A]">Project Year</label>
-                      <input type="number" placeholder="2024" className="h-11 border border-gray-300 rounded-[6px] px-3 font-sans text-[14px] text-[#1A1A1A] outline-none focus:border-[#C8A96A] focus:ring-1 focus:ring-[#C8A96A]" />
+                      <input type="number" value={projectYear} onChange={(e) => setProjectYear(e.target.value)} placeholder="2026" className="h-11 border border-gray-300 rounded-[6px] px-3 font-sans text-[14px] text-[#1A1A1A] outline-none focus:border-[#C8A96A] focus:ring-1 focus:ring-[#C8A96A]" />
                     </div>
                   </div>
                 </motion.div>
@@ -448,7 +572,8 @@ const Wizard = () => {
                     </div>
                     <textarea 
                       className="flex-1 p-4 font-mono text-[13px] text-[#1A1A1A] outline-none resize-none"
-                      defaultValue="# Project Overview\n\nEnter your markdown documentation here..."
+                      value={markdown}
+                      onChange={(e) => setMarkdown(e.target.value)}
                     ></textarea>
                   </div>
                 </motion.div>
@@ -468,11 +593,18 @@ const Wizard = () => {
                       <span className="font-mono text-[10px]">No Cover</span>
                     </div>
                     <div className="flex-1 flex flex-col justify-center">
-                      <h3 className="font-serif text-[20px] text-[#1A1A1A] mb-1">The Meridian Residence</h3>
-                      <p className="font-sans text-[13px] text-gray-500 line-clamp-2">Brief overview shown on project card...</p>
+                      <h3 className="font-serif text-[20px] text-[#1A1A1A] mb-1">{title || 'Untitled Repository'}</h3>
+                      <p className="font-sans text-[13px] text-gray-500 line-clamp-2">{description || 'No description provided.'}</p>
+                      
+                      <div className="mt-3 flex items-center gap-2">
+                        <AvatarDisplay avatarUrl={avatarUrl} displayName={displayName} username={authUsername} size={28} />
+                        <span className="font-sans text-[13px] font-medium text-[#1A1A1A]">{displayName}</span>
+                        <span className="font-mono text-[11px] text-gray-400">@{authUsername}</span>
+                      </div>
+
                       <div className="mt-3 flex gap-2">
-                        <span className="bg-white border border-gray-200 px-2 py-0.5 rounded font-sans text-[11px] text-gray-600">Residential</span>
-                        <span className="bg-white border border-gray-200 px-2 py-0.5 rounded font-sans text-[11px] text-gray-600">2024</span>
+                        <span className="bg-white border border-gray-200 px-2 py-0.5 rounded font-sans text-[11px] text-gray-600">{category}</span>
+                        <span className="bg-white border border-gray-200 px-2 py-0.5 rounded font-sans text-[11px] text-gray-600">{projectYear}</span>
                       </div>
                     </div>
                   </div>
@@ -481,11 +613,11 @@ const Wizard = () => {
                     <div className="flex flex-col gap-3">
                       <span className="font-mono text-[11px] uppercase tracking-wider text-[#C8A96A]">Visibility</span>
                       <label className="flex items-center gap-3 cursor-pointer">
-                        <input type="radio" name="vis" className="accent-[#C8A96A] w-4 h-4" defaultChecked />
+                        <input type="radio" name="vis" className="accent-[#C8A96A] w-4 h-4" checked={visibility === 'public'} onChange={() => setVisibility('public')} />
                         <span className="font-sans text-[14px] text-[#1A1A1A]">Public (Community)</span>
                       </label>
                       <label className="flex items-center gap-3 cursor-pointer">
-                        <input type="radio" name="vis" className="accent-[#C8A96A] w-4 h-4" />
+                        <input type="radio" name="vis" className="accent-[#C8A96A] w-4 h-4" checked={visibility === 'private'} onChange={() => setVisibility('private')} />
                         <span className="font-sans text-[14px] text-[#1A1A1A]">Private (Only me)</span>
                       </label>
                     </div>
@@ -493,11 +625,11 @@ const Wizard = () => {
                     <div className="flex flex-col gap-3">
                       <span className="font-mono text-[11px] uppercase tracking-wider text-[#C8A96A]">Permissions</span>
                       <label className="flex items-center gap-3 cursor-pointer">
-                        <input type="checkbox" className="accent-[#C8A96A] rounded w-4 h-4" defaultChecked />
+                        <input type="checkbox" className="accent-[#C8A96A] rounded w-4 h-4" checked={allowForks} onChange={(e) => setAllowForks(e.target.checked)} />
                         <span className="font-sans text-[14px] text-[#1A1A1A]">Allow forks</span>
                       </label>
                       <label className="flex items-center gap-3 cursor-pointer">
-                        <input type="checkbox" className="accent-[#C8A96A] rounded w-4 h-4" defaultChecked />
+                        <input type="checkbox" className="accent-[#C8A96A] rounded w-4 h-4" checked={allowComments} onChange={(e) => setAllowComments(e.target.checked)} />
                         <span className="font-sans text-[14px] text-[#1A1A1A]">Allow comments</span>
                       </label>
                     </div>
@@ -541,17 +673,101 @@ const Wizard = () => {
 };
 
 const Workspace = () => {
+  const { username: authUsername, firebaseUser } = useAuth();
   const { repoId } = useParams();
-  // Find repo or default to first
-  const repo = REPOS.find(r => r.id === repoId) || REPOS[0];
-  const type = repo.repoType || 'Project';
+  const navigate = useNavigate();
+  const [project, setProject] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Editable fields in state
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('');
+  const [projectYear, setProjectYear] = useState('');
+  const [visibility, setVisibility] = useState('public');
+  const [markdown, setMarkdown] = useState('');
 
   const [activeTab, setActiveTab] = useState('files');
-  const [inspectorTab, setInspectorTab] = useState('Block');
+  const [inspectorTab, setInspectorTab] = useState('Page');
   const [viewMode, setViewMode] = useState('edit');
-  const [selectedBlock, setSelectedBlock] = useState(null);
-  const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const rightPanelOpen = true;
   const [commitModalOpen, setCommitModalOpen] = useState(false);
+  const [isCommitting, setIsCommitting] = useState(false);
+  const [commitMessage, setCommitMessage] = useState('');
+
+  useEffect(() => {
+    if (repoId && firebaseUser?.uid) {
+      const fetchProjectData = async () => {
+        try {
+          await supabase.rpc('set_firebase_uid', { uid: firebaseUser.uid });
+          const { data, error } = await supabase
+            .from('projects')
+            .select('*')
+            .eq('id', repoId)
+            .single();
+
+          if (data) {
+            setProject(data);
+            setTitle(data.title || '');
+            setDescription(data.description || '');
+            setCategory(data.category || 'Residential');
+            setProjectYear(data.project_year || 2026);
+            setVisibility(data.visibility || 'public');
+            setMarkdown(data.readme_markdown || '# Project Overview\n\nEnter your markdown documentation here...');
+          } else {
+            console.error(error);
+          }
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchProjectData();
+    }
+  }, [repoId, firebaseUser?.uid]);
+
+  const handleCommit = async () => {
+    if (!repoId || !firebaseUser?.uid) return;
+    setIsCommitting(true);
+    try {
+      const updates = {
+        title,
+        description,
+        category,
+        project_year: parseInt(projectYear) || 2026,
+        visibility,
+        readme_markdown: markdown
+      };
+      
+      const { data, error } = await updateProject(firebaseUser.uid, repoId, updates);
+
+      if (error) {
+        alert('Failed to save changes: ' + error);
+      } else if (data) {
+        setProject(data);
+        setCommitModalOpen(false);
+        setCommitMessage('');
+        alert('Changes committed successfully!');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error saving changes: ' + err.message);
+    } finally {
+      setIsCommitting(false);
+    }
+  };
+
+  const typeMap = {
+    'project': 'Project',
+    'case_study': 'Case Study',
+    'journal': 'Journal',
+    'resource': 'Resource',
+    'reference': 'Reference'
+  };
+  const type = typeMap[project?.content_type] || 'Project';
+  const repo = { name: project?.repo_name || '', title: project?.title || '' };
 
   // Background for workspace
   const workspaceBg = {
@@ -559,6 +775,25 @@ const Workspace = () => {
     backgroundImage: `repeating-linear-gradient(rgba(200,169,106,0.04) 1px, transparent 1px), repeating-linear-gradient(90deg, rgba(200,169,106,0.04) 1px, transparent 1px)`,
     backgroundSize: '32px 32px'
   };
+
+  if (loading) {
+    return (
+      <div className="h-[calc(100vh-80px)] bg-[#F7F6F3] flex flex-col items-center justify-center">
+        <Hexagon className="w-12 h-12 text-[#C8A96A] animate-spin mb-4" />
+        <p className="font-sans text-[14px] text-gray-500">Loading workspace...</p>
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="h-[calc(100vh-80px)] bg-[#F7F6F3] flex flex-col items-center justify-center p-6 text-center">
+        <h3 className="font-serif text-[24px] text-[#1A1A1A] mb-2">Workspace Not Found</h3>
+        <p className="font-sans text-[14px] text-gray-500 mb-6">The repository you are trying to access does not exist or you do not have permission to view it.</p>
+        <button onClick={() => navigate('/studio')} className="bg-[#C8A96A] text-white font-sans text-[13px] font-bold px-6 h-9 rounded">Back to Studio</button>
+      </div>
+    );
+  }
 
   return (
     <div className="h-[calc(100vh-80px)] bg-[#F7F6F3] flex flex-col overflow-auto lg:overflow-hidden relative text-[#1A1A1A]">
@@ -590,8 +825,8 @@ const Workspace = () => {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="h-8 px-4 font-sans text-[13px] font-medium text-gray-500 border border-gray-200 rounded-[6px] hover:bg-gray-50 transition-colors flex items-center gap-1.5">
-            <Eye className="w-3.5 h-3.5" /> Preview
+          <button onClick={() => setViewMode(viewMode === 'edit' ? 'preview' : 'edit')} className="h-8 px-4 font-sans text-[13px] font-medium text-gray-500 border border-gray-200 rounded-[6px] hover:bg-gray-50 transition-colors flex items-center gap-1.5">
+            <Eye className="w-3.5 h-3.5" /> {viewMode === 'edit' ? 'Preview' : 'Edit'}
           </button>
           <button onClick={() => setCommitModalOpen(true)} className="h-8 px-4 bg-[#C8A96A] text-white font-sans text-[13px] font-bold rounded-[6px] hover:brightness-110 transition-colors flex items-center gap-1.5">
             <ArrowUp className="w-3.5 h-3.5" /> Commit Changes
@@ -650,7 +885,7 @@ const Workspace = () => {
                         <span className="font-mono text-[10px] text-gray-400">{h.date}</span>
                       </div>
                       <span className="font-sans text-[13px] text-[#1A1A1A] mt-1">{h.msg}</span>
-                      <div className="font-sans text-[12px] text-gray-500 mt-1">{h.author} &middot; {h.filesCount} files</div>
+                      <div className="font-sans text-[12px] text-gray-500 mt-1">@{authUsername || 'username'} &middot; {h.filesCount} files</div>
                     </div>
                   </div>
                 ))}
@@ -692,66 +927,47 @@ const Workspace = () => {
           </div>
 
           <div className="flex-1 overflow-y-scroll p-10 flex justify-center custom-scrollbar">
-            <div className="w-full max-w-[800px] flex flex-col gap-6 pb-20">
-              
-              {type === 'Project' && (
-                <>
-                  <div className="group relative" onClick={() => setSelectedBlock('text1')}>
-                    <div className={`absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 cursor-grab p-1 text-gray-400`}>⠿</div>
-                    <div className={`p-4 transition-all ${selectedBlock === 'text1' ? 'ring-2 ring-blue-400 rounded-md bg-white shadow-sm' : 'border border-transparent'}`}>
-                      <h1 className="font-serif text-[42px] text-[#1A1A1A] leading-tight">{repo.title}</h1>
-                      <p className="font-sans text-[18px] text-gray-600 mt-4 leading-relaxed">A contemporary exploration of light and monolithic forms, situated on the edge of the coastal cliffs.</p>
-                    </div>
+            <div className="w-full max-w-[800px] flex flex-col gap-6 pb-20 bg-white p-8 rounded-[12px] border border-gray-100 shadow-sm h-fit">
+              {viewMode === 'edit' ? (
+                <div className="flex flex-col gap-6">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-sans text-[13px] font-medium text-[#1A1A1A]">Display Title</label>
+                    <input 
+                      type="text" 
+                      value={title} 
+                      onChange={(e) => setTitle(e.target.value)} 
+                      className="h-11 border border-gray-200 rounded-[6px] px-3 font-serif text-[18px] outline-none focus:border-[#C8A96A]" 
+                    />
                   </div>
-
-                  <div className="relative my-2 h-0.5 w-full bg-transparent flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                    <div className="absolute w-full h-[1px] bg-[#C8A96A]"></div>
-                    <button className="w-6 h-6 rounded-full bg-[#C8A96A] text-white flex items-center justify-center relative z-10"><Plus className="w-4 h-4" /></button>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-sans text-[13px] font-medium text-[#1A1A1A]">Description</label>
+                    <textarea 
+                      rows="3" 
+                      value={description} 
+                      onChange={(e) => setDescription(e.target.value)} 
+                      className="border border-gray-200 rounded-[6px] p-3 font-sans text-[14px] outline-none resize-none focus:border-[#C8A96A]" 
+                    />
                   </div>
-
-                  <div className="group relative" onClick={() => setSelectedBlock('img1')}>
-                    <div className={`absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 cursor-grab p-1 text-gray-400`}>⠿</div>
-                    <div className={`transition-all ${selectedBlock === 'img1' ? 'ring-2 ring-blue-400 rounded-md p-1 bg-white shadow-sm' : ''}`}>
-                      <img src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&q=80" className="w-full h-[400px] object-cover rounded-md" alt="hero" />
-                      <p className="font-sans text-[13px] text-gray-500 italic mt-2 text-center">View from the south cliff edge, sunset.</p>
-                    </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-sans text-[13px] font-medium text-[#1A1A1A]">Documentation (Markdown)</label>
+                    <textarea 
+                      rows="12" 
+                      value={markdown} 
+                      onChange={(e) => setMarkdown(e.target.value)} 
+                      className="border border-gray-200 rounded-[6px] p-4 font-mono text-[13px] outline-none resize-none focus:border-[#C8A96A]" 
+                    />
                   </div>
-                </>
-              )}
-
-              {type === 'Case Study' && (
-                <>
-                  <div className="group relative" onClick={() => setSelectedBlock('text1')}>
-                    <div className={`absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 cursor-grab p-1 text-gray-400`}>⠿</div>
-                    <div className={`p-4 transition-all ${selectedBlock === 'text1' ? 'ring-2 ring-blue-400 rounded-md bg-white shadow-sm' : 'border border-transparent'}`}>
-                      <span className="font-mono text-[12px] text-[#38b4b4] uppercase tracking-wider mb-4 block">Case Study Analysis</span>
-                      <h1 className="font-serif text-[42px] text-[#1A1A1A] leading-tight">{repo.title}</h1>
-                      <div className="flex gap-4 mt-6 border-y border-gray-200 py-4">
-                        <div className="flex flex-col">
-                          <span className="font-mono text-[10px] text-gray-400 uppercase">Location</span>
-                          <span className="font-sans text-[14px]">Dubai, UAE</span>
-                        </div>
-                        <div className="w-[1px] bg-gray-200"></div>
-                        <div className="flex flex-col">
-                          <span className="font-mono text-[10px] text-gray-400 uppercase">Climate</span>
-                          <span className="font-sans text-[14px]">Arid / Desert</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {['Resource', 'Reference', 'Journal'].includes(type) && (
-                <div className="group relative" onClick={() => setSelectedBlock('text1')}>
-                  <div className={`absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 cursor-grab p-1 text-gray-400`}>⠿</div>
-                  <div className={`p-4 transition-all ${selectedBlock === 'text1' ? 'ring-2 ring-blue-400 rounded-md bg-white shadow-sm' : 'border border-transparent'}`}>
-                    <h1 className="font-serif text-[42px] text-[#1A1A1A] leading-tight">{repo.title}</h1>
-                    <p className="font-sans text-[18px] text-gray-600 mt-4 leading-relaxed">Start drafting your {type.toLowerCase()} here...</p>
+                </div>
+              ) : (
+                <div className="prose max-w-none">
+                  <h1 className="font-serif text-[36px] text-[#1A1A1A] leading-tight mb-2">{title || project.title}</h1>
+                  <p className="font-sans text-[16px] text-gray-500 italic mb-6">{description || project.description}</p>
+                  <div className="h-[1px] bg-gray-200 my-6"></div>
+                  <div className="font-mono text-[13px] text-gray-700 whitespace-pre-wrap">
+                    {markdown || '# No documentation provided yet.'}
                   </div>
                 </div>
               )}
-
             </div>
           </div>
         </div>
@@ -760,7 +976,7 @@ const Workspace = () => {
         {rightPanelOpen && (
           <div className="w-[280px] bg-white border-l border-[#C8A96A]/15 flex flex-col shrink-0 z-10 shadow-[-2px_0_10px_rgba(0,0,0,0.02)]">
             <div className="flex h-10 border-b border-gray-200 shrink-0">
-              {['Block', 'Page', 'Settings'].map(tab => (
+              {['Page', 'Settings'].map(tab => (
                 <button 
                   key={tab}
                   onClick={() => setInspectorTab(tab)}
@@ -791,76 +1007,59 @@ const Workspace = () => {
                     <h4 className="font-mono text-[10px] uppercase text-gray-400 tracking-wider">Repository Metadata</h4>
                     
                     <div className="flex flex-col gap-1.5">
-                      <label className="font-sans text-[12px] text-gray-600">Title</label>
-                      <input type="text" defaultValue={repo.title} className="w-full h-8 border border-gray-200 rounded px-2 font-sans text-[13px] outline-none" />
+                      <label className="font-sans text-[12px] text-gray-600">Category</label>
+                      <select 
+                        value={category} 
+                        onChange={(e) => setCategory(e.target.value)} 
+                        className="w-full h-8 border border-gray-200 rounded px-2 font-sans text-[13px] outline-none bg-white"
+                      >
+                        <option>Residential</option>
+                        <option>Commercial</option>
+                        <option>Urban Planning</option>
+                        <option>Interior</option>
+                        <option>Landscape</option>
+                        <option>Heritage</option>
+                        <option>Mixed-Use</option>
+                      </select>
                     </div>
 
-                    {type === 'Project' && (
-                      <div className="flex flex-col gap-1.5">
-                        <label className="font-sans text-[12px] text-gray-600">Site Area (sqm)</label>
-                        <input type="number" defaultValue="4500" className="w-full h-8 border border-gray-200 rounded px-2 font-sans text-[13px] outline-none" />
-                      </div>
-                    )}
-                    
-                    {type === 'Case Study' && (
-                      <div className="flex flex-col gap-1.5">
-                        <label className="font-sans text-[12px] text-gray-600">Research Focus</label>
-                        <input type="text" defaultValue="Passive Cooling" className="w-full h-8 border border-gray-200 rounded px-2 font-sans text-[13px] outline-none" />
-                      </div>
-                    )}
-
-                    <div className="flex flex-col gap-1.5 mt-2">
-                      <label className="font-sans text-[12px] text-gray-600">Tags</label>
-                      <input type="text" placeholder="Add tags separated by commas" className="w-full h-8 border border-gray-200 rounded px-2 font-sans text-[13px] outline-none" />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {inspectorTab === 'Block' && !selectedBlock && (
-                <div className="flex flex-col items-center justify-center h-[200px] text-gray-400 gap-3">
-                  <LayoutGrid className="w-8 h-8 opacity-50" />
-                  <p className="font-sans text-[13px] text-center px-4">Select a block on the canvas to edit its properties.</p>
-                </div>
-              )}
-
-              {inspectorTab === 'Block' && selectedBlock === 'text1' && (
-                <div className="flex flex-col gap-5">
-                  <div>
-                    <label className="font-mono text-[10px] text-gray-400 uppercase tracking-wider mb-2 block">Text Style</label>
-                    <div className="grid grid-cols-4 gap-1 border border-gray-200 rounded p-1 bg-gray-50">
-                      <button className="h-7 bg-white shadow-sm rounded text-sm font-serif">H1</button>
-                      <button className="h-7 rounded text-sm font-serif text-gray-500 hover:bg-gray-200">H2</button>
-                      <button className="h-7 rounded text-sm font-serif text-gray-500 hover:bg-gray-200">H3</button>
-                      <button className="h-7 rounded text-sm font-sans text-gray-500 hover:bg-gray-200">¶</button>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="font-mono text-[10px] text-gray-400 uppercase tracking-wider mb-2 block">Alignment</label>
-                    <div className="flex gap-1 border border-gray-200 rounded p-1 bg-gray-50">
-                      <button className="flex-1 flex justify-center items-center h-7 bg-white shadow-sm rounded"><AlignLeft className="w-4 h-4" /></button>
-                      <button className="flex-1 flex justify-center items-center h-7 rounded text-gray-500 hover:bg-gray-200"><AlignCenter className="w-4 h-4" /></button>
-                      <button className="flex-1 flex justify-center items-center h-7 rounded text-gray-500 hover:bg-gray-200"><AlignRight className="w-4 h-4" /></button>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="font-sans text-[12px] text-gray-600">Project Year</label>
+                      <input 
+                        type="number" 
+                        value={projectYear} 
+                        onChange={(e) => setProjectYear(e.target.value)} 
+                        className="w-full h-8 border border-gray-200 rounded px-2 font-sans text-[13px] outline-none" 
+                      />
                     </div>
                   </div>
                 </div>
               )}
 
-              {inspectorTab === 'Block' && selectedBlock === 'img1' && (
-                <div className="flex flex-col gap-5">
-                  <div>
-                    <label className="font-mono text-[10px] text-gray-400 uppercase tracking-wider mb-2 block">Image Size</label>
-                    <select className="w-full h-8 border border-gray-200 rounded px-2 font-sans text-[13px] outline-none">
-                      <option>Full Width</option><option>80% Centered</option><option>50% Left</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="font-mono text-[10px] text-gray-400 uppercase tracking-wider mb-2 block">Caption</label>
-                    <input type="text" defaultValue="View from the south cliff edge, sunset." className="w-full h-8 border border-gray-200 rounded px-2 font-sans text-[13px] outline-none focus:border-[#C8A96A]" />
-                  </div>
-                  <div className="flex items-center gap-2 mt-2 cursor-pointer">
-                    <input type="checkbox" className="accent-[#C8A96A]" defaultChecked />
-                    <span className="font-sans text-[13px] text-gray-700">Rounded corners</span>
+              {inspectorTab === 'Settings' && (
+                <div className="flex flex-col gap-4">
+                  <h4 className="font-mono text-[10px] uppercase text-gray-400 tracking-wider">Visibility</h4>
+                  <div className="flex flex-col gap-2">
+                    <label className="flex items-center gap-2 font-sans text-[13px] text-gray-700 cursor-pointer">
+                      <input 
+                        type="radio" 
+                        name="vis-editor" 
+                        checked={visibility === 'public'} 
+                        onChange={() => setVisibility('public')} 
+                        className="accent-[#C8A96A]" 
+                      />
+                      Public (Community)
+                    </label>
+                    <label className="flex items-center gap-2 font-sans text-[13px] text-gray-700 cursor-pointer">
+                      <input 
+                        type="radio" 
+                        name="vis-editor" 
+                        checked={visibility === 'private'} 
+                        onChange={() => setVisibility('private')} 
+                        className="accent-[#C8A96A]" 
+                      />
+                      Private (Only me)
+                    </label>
                   </div>
                 </div>
               )}
@@ -886,31 +1085,22 @@ const Workspace = () => {
                 </div>
 
                 <div className="flex flex-col gap-2 mb-6">
-                  <label className="font-sans text-[13px] font-medium text-[#1A1A1A]">Commit Message *</label>
-                  <textarea rows="3" placeholder="Describe what you changed..." className="border border-gray-300 rounded-[6px] p-3 font-sans text-[14px] outline-none resize-none focus:border-[#C8A96A] focus:ring-1 focus:ring-[#C8A96A]" />
+                  <label className="font-sans text-[13px] font-medium text-[#1A1A1A]">Commit Message</label>
+                  <textarea 
+                    rows="3" 
+                    value={commitMessage} 
+                    onChange={(e) => setCommitMessage(e.target.value)} 
+                    placeholder="Describe what you changed..." 
+                    className="border border-gray-300 rounded-[6px] p-3 font-sans text-[14px] outline-none resize-none focus:border-[#C8A96A] focus:ring-1 focus:ring-[#C8A96A]" 
+                  />
                 </div>
 
-                <div className="flex flex-col gap-3 mb-8">
-                  <label className="font-mono text-[11px] text-[#C8A96A] uppercase tracking-wider">Version</label>
-                  <div className="flex gap-3">
-                    <div className="flex-1 border-2 border-[#C8A96A] bg-[#C8A96A]/5 rounded-lg p-3 cursor-pointer">
-                      <div className="font-sans text-[14px] font-medium text-[#1A1A1A]">Patch</div>
-                      <div className="font-mono text-[11px] text-gray-500 mt-1">1.2.1</div>
-                    </div>
-                    <div className="flex-1 border border-gray-200 hover:border-[#C8A96A]/50 rounded-lg p-3 cursor-pointer">
-                      <div className="font-sans text-[14px] font-medium text-[#1A1A1A]">Minor</div>
-                      <div className="font-mono text-[11px] text-gray-500 mt-1">1.3.0</div>
-                    </div>
-                    <div className="flex-1 border border-gray-200 hover:border-[#C8A96A]/50 rounded-lg p-3 cursor-pointer">
-                      <div className="font-sans text-[14px] font-medium text-[#1A1A1A]">Major</div>
-                      <div className="font-mono text-[11px] text-gray-500 mt-1">2.0.0</div>
-                    </div>
-                  </div>
-                  <div className="font-mono text-[13px] text-gray-500 mt-1 text-center">New version will be: v1.2.1</div>
-                </div>
-
-                <button onClick={() => setCommitModalOpen(false)} className="w-full h-12 bg-[#C8A96A] text-white font-serif text-[16px] font-bold rounded-[6px] hover:brightness-110 flex items-center justify-center gap-2 transition-all">
-                  <Hexagon className="w-4 h-4" /> Commit & Save
+                <button 
+                  onClick={handleCommit} 
+                  disabled={isCommitting} 
+                  className="w-full h-12 bg-[#C8A96A] text-white font-serif text-[16px] font-bold rounded-[6px] hover:brightness-110 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                >
+                  {isCommitting ? <Hexagon className="w-4 h-4 animate-spin" /> : <Hexagon className="w-4 h-4" />} Commit & Save
                 </button>
                 <div className="text-center mt-4">
                   <button onClick={() => setCommitModalOpen(false)} className="font-sans text-[14px] text-gray-500 hover:text-gray-800 transition-colors">Cancel</button>
@@ -980,23 +1170,9 @@ const GoldenLock = () => {
 };
 
 export default function Studio() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [checking, setChecking] = useState(true);
+  const { currentUser, loading } = useAuth();
 
-  useEffect(() => {
-    const checkStatus = () => {
-      const auth = localStorage.getItem('archive_auth');
-      setIsLoggedIn(!!auth);
-      setChecking(false);
-    };
-    
-    checkStatus();
-    // Listen for storage changes
-    window.addEventListener('storage', checkStatus);
-    return () => window.removeEventListener('storage', checkStatus);
-  }, []);
-
-  if (checking) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#F5F3EF] flex items-center justify-center">
         <Hexagon className="w-12 h-12 text-[#C8A96A] animate-spin" />
@@ -1004,7 +1180,7 @@ export default function Studio() {
     );
   }
 
-  if (!isLoggedIn) {
+  if (!currentUser) {
     return <GoldenLock />;
   }
 

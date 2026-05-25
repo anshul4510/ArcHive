@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './components/ToastContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
@@ -14,8 +16,11 @@ import Repository from './pages/Repository';
 import About from './pages/About';
 import Studio from './pages/Studio';
 import ReaderPage from './pages/ReaderPage';
+import ComingSoon from './pages/ComingSoon';
+import NotFound from './pages/NotFound';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Hexagon } from 'lucide-react';
+import OverlayRoot from './components/overlays/OverlayRoot';
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -51,10 +56,12 @@ const CustomCursor = () => {
 // Loading Screen Component
 const LoadingScreen = ({ onComplete }) => {
   useEffect(() => {
-    const timer = setTimeout(() => {
-      onComplete();
-    }, 2000);
-    return () => clearTimeout(timer);
+    if (onComplete) {
+      const timer = setTimeout(() => {
+        onComplete();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
   }, [onComplete]);
 
   return (
@@ -84,33 +91,88 @@ const LoadingScreen = ({ onComplete }) => {
   );
 };
 
-import OverlayRoot from './components/overlays/OverlayRoot';
+const ProtectedRoute = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
+  if (loading) return <LoadingScreen />;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  }
+  return children;
+};
+
+const PublicOnlyRoute = ({ children }) => {
+  const { isAuthenticated, loading, supabaseUser } = useAuth();
+  const location = useLocation();
+  if (loading) return <LoadingScreen />;
+  if (isAuthenticated && supabaseUser) {
+    const dest = location.state?.from || '/projects';
+    return <Navigate to={dest} replace />;
+  }
+  return children;
+};
 
 const AppContent = () => {
   const location = useLocation();
   const isAuthPage = location.pathname === '/login' || location.pathname === '/signup';
   const isStudioPage = location.pathname.startsWith('/studio');
 
+  const hideNav = ['/login', '/signup'].some(path => location.pathname.startsWith(path));
+
   return (
     <>
       <OverlayRoot />
       <CustomCursor />
-      {!isAuthPage && <Navbar />}
+      {!hideNav && <Navbar />}
       <main className="min-h-screen">
         <Routes>
+          {/* Public */}
           <Route path="/" element={<Home />} />
           <Route path="/projects" element={<Projects />} />
-          <Route path="/projects/:id" element={<ProjectDetail />} />
-          <Route path="/login" element={<AuthLayout><Login /></AuthLayout>} />
-          <Route path="/signup" element={<AuthLayout><Signup /></AuthLayout>} />
-          <Route path="/profile/:username?/:tab?" element={<Profile />} />
+          <Route path="/projects/:username/:repoName" element={<ProjectDetail />} />
           <Route path="/services" element={<Services />} />
           <Route path="/repository" element={<Repository />} />
-          <Route path="/repository/case-studies/:id" element={<ReaderPage />} />
-          <Route path="/repository/journals/:id" element={<ReaderPage />} />
-          <Route path="/studio/*" element={<Studio />} />
+          <Route path="/repository/case-studies/:id" element={<ReaderPage type="case-study" />} />
+          <Route path="/repository/journals/:id" element={<ReaderPage type="journal" />} />
           <Route path="/about" element={<About />} />
-          <Route path="*" element={<Home />} />
+          <Route path="/profile/:username" element={<Profile />} />
+          <Route path="/profile/:username/:tab" element={<Profile />} />
+
+          {/* Public-only (redirect if logged in) */}
+          <Route path="/login" element={
+            <PublicOnlyRoute>
+              <AuthLayout><Login /></AuthLayout>
+            </PublicOnlyRoute>
+          } />
+          <Route path="/signup" element={
+            <PublicOnlyRoute>
+              <AuthLayout><Signup /></AuthLayout>
+            </PublicOnlyRoute>
+          } />
+
+          {/* Protected (redirect to login if not authed) */}
+          <Route path="/profile/me" element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          } />
+          <Route path="/profile/me/:tab" element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          } />
+          <Route path="/studio/*" element={
+            <ProtectedRoute>
+              <Studio />
+            </ProtectedRoute>
+          } />
+
+          {/* Coming soon */}
+          <Route path="/messages" element={<ComingSoon feature="Messages" />} />
+          <Route path="/notifications" element={<ComingSoon feature="Notifications" />} />
+
+          {/* 404 */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
       {!isAuthPage && !isStudioPage && <Footer />}
@@ -122,14 +184,17 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   return (
-    <Router>
-      <ScrollToTop />
-      <AnimatePresence>
-        {loading && <LoadingScreen onComplete={() => setLoading(false)} />}
-      </AnimatePresence>
-      
-      {!loading && <AppContent />}
-    </Router>
+    <AuthProvider>
+      <ToastProvider>
+        <Router>
+          <ScrollToTop />
+          <AnimatePresence>
+            {loading && <LoadingScreen onComplete={() => setLoading(false)} />}
+          </AnimatePresence>
+          {!loading && <AppContent />}
+        </Router>
+      </ToastProvider>
+    </AuthProvider>
   );
 }
 

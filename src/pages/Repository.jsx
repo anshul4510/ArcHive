@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, BookOpen, FileText, Package, Link2, 
   Heart, Eye, ArrowUp, ArrowRight, Download,
-  ChevronDown, Hexagon, Filter, PenTool, UploadCloud, ChevronRight
+  Hexagon, PenTool, UploadCloud
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import HexPattern from '../components/HexPattern';
 import { useUi } from '../context/UiContext';
+import { useAuth } from '../context/AuthContext';
 
 // --- MOCK DATA ---
 const caseStudies = [
@@ -255,7 +256,10 @@ const JournalsTab = () => (
 const ResourcesTab = () => {
   const [activeCat, setActiveCat] = useState('All');
   const { openAuthPrompt, addToast } = useUi();
-  const isLoggedIn = !!localStorage.getItem('archive_auth');
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isLoggedIn = !!currentUser;
   
   const filtered = resources.filter(res => activeCat === 'All' || res.category === activeCat);
 
@@ -326,8 +330,13 @@ const ResourcesTab = () => {
               <div className="mt-auto flex gap-2">
                 <button 
                   onClick={() => {
-                    if (!isLoggedIn) openAuthPrompt('Sign in to download', 'Create your ArcHive account to download resources.');
-                    else addToast('Download started', 'success');
+                    if (!isLoggedIn) {
+                      navigate('/login', { state: { from: location.pathname } });
+                    } else if (res.isPro && !currentUser.isPro) {
+                      openAuthPrompt('Pro Resource', 'Upgrade to Pro to download this resource.');
+                    } else {
+                      addToast('Download started', 'success');
+                    }
                   }}
                   className="flex-1 py-2 rounded flex items-center justify-center font-sans text-[12px] font-medium bg-[#F5F3EF] text-[#1A1A1A] hover:bg-accent-gold hover:text-[#111] transition-colors"
                 >
@@ -335,8 +344,19 @@ const ResourcesTab = () => {
                 </button>
                 <button 
                   onClick={() => {
-                    if (!isLoggedIn) openAuthPrompt('Sign in to save', 'Create your ArcHive account to save resources.');
-                    else addToast('Saved to collection', 'success');
+                    if (!isLoggedIn) {
+                      navigate('/login', { state: { from: location.pathname } });
+                    } else {
+                      const stored = JSON.parse(localStorage.getItem('archive_ui_repo_saves') || '{}');
+                      if (stored[res.id]) {
+                        delete stored[res.id];
+                        addToast('Removed from collection', 'info');
+                      } else {
+                        stored[res.id] = 'Default Collection';
+                        addToast('Saved to collection', 'success');
+                      }
+                      localStorage.setItem('archive_ui_repo_saves', JSON.stringify(stored));
+                    }
                   }}
                   className="w-8 h-8 flex items-center justify-center border border-[#C8A96A]/20 rounded text-[#6B6860] hover:text-accent-gold hover:border-accent-gold transition-colors"
                 >
@@ -453,14 +473,17 @@ const ReferencesTab = () => {
 
 const Repository = () => {
   const [activeTab, setActiveTab] = useState('case-studies');
+  // eslint-disable-next-line no-unused-vars
   const { openAuthPrompt } = useUi();
-  const isLoggedIn = !!localStorage.getItem('archive_auth');
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
+  const isLoggedIn = !!currentUser;
 
   const tabs = [
-    { id: 'case-studies', label: 'Case Studies', icon: BookOpen, count: "2,847 items" },
-    { id: 'journals', label: 'Journals', icon: FileText, count: "941 items" },
-    { id: 'resources', label: 'Resources', icon: Package, count: "1,203 items" },
-    { id: 'references', label: 'References', icon: Link2, count: "388 items" }
+    { id: 'case-studies', label: 'Case Studies', icon: BookOpen, count: "0 items" },
+    { id: 'journals', label: 'Journals', icon: FileText, count: "0 items" },
+    { id: 'resources', label: 'Resources', icon: Package, count: "0 items" },
+    { id: 'references', label: 'References', icon: Link2, count: "0 items" }
   ];
 
   return (
@@ -518,7 +541,7 @@ const Repository = () => {
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5, delay: 0.5 }}
             className="mt-8 flex flex-wrap justify-center gap-2 max-w-[700px]"
           >
-            {["Brutalism", "Sustainable", "High-rise", "Parametric", "Heritage", "Minimalism", "Urban", "Interior"].map((tag, i) => (
+            {["Brutalism", "Sustainable", "High-rise", "Parametric", "Heritage", "Minimalism", "Urban", "Interior"].map((tag) => (
               <button key={tag} className="px-3 py-1.5 bg-[#111] border border-white/10 rounded-full font-sans text-[12px] text-[#9B9790] hover:text-accent-gold hover:border-accent-gold transition-colors">
                 {tag}
               </button>
@@ -530,13 +553,13 @@ const Repository = () => {
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5, delay: 0.6 }}
             className="mt-8 font-mono text-[12px] text-[#9B9790] flex flex-wrap justify-center items-center gap-y-2"
           >
-            <span className="flex items-center"><Hexagon className="w-3 h-3 mr-1.5 text-accent-gold"/> 2,847 Case Studies</span>
+            <span className="flex items-center"><Hexagon className="w-3 h-3 mr-1.5 text-accent-gold"/> 0 Case Studies</span>
             <span className="mx-3 opacity-30">·</span>
-            <span className="flex items-center"><Hexagon className="w-3 h-3 mr-1.5 text-accent-gold"/> 941 Journals</span>
+            <span className="flex items-center"><Hexagon className="w-3 h-3 mr-1.5 text-accent-gold"/> 0 Journals</span>
             <span className="mx-3 opacity-30 hidden sm:inline">·</span>
-            <span className="flex items-center w-full sm:w-auto justify-center mt-2 sm:mt-0"><Hexagon className="w-3 h-3 mr-1.5 text-accent-gold"/> 1,203 Resources</span>
+            <span className="flex items-center w-full sm:w-auto justify-center mt-2 sm:mt-0"><Hexagon className="w-3 h-3 mr-1.5 text-accent-gold"/> 0 Resources</span>
             <span className="mx-3 opacity-30 hidden sm:inline">·</span>
-            <span className="flex items-center"><Hexagon className="w-3 h-3 mr-1.5 text-accent-gold"/> 388 References</span>
+            <span className="flex items-center"><Hexagon className="w-3 h-3 mr-1.5 text-accent-gold"/> 0 References</span>
           </motion.div>
         </div>
       </section>
@@ -591,9 +614,9 @@ const Repository = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
             {[
-              { title: "Submit Case Study", desc: "Share deep-dives into your completed projects.", icon: BookOpen },
-              { title: "Write an Article", desc: "Publish essays, opinions, or research findings.", icon: PenTool },
-              { title: "Upload Resource", desc: "Share CAD blocks, templates, or textures.", icon: UploadCloud }
+              { title: "Submit Case Study", desc: "Share deep-dives into your completed projects.", icon: BookOpen, type: 'casestudy' },
+              { title: "Write an Article", desc: "Publish essays, opinions, or research findings.", icon: PenTool, type: 'journal' },
+              { title: "Upload Resource", desc: "Share CAD blocks, templates, or textures.", icon: UploadCloud, type: 'resource' }
             ].map((item, i) => (
               <div key={i} className="bg-white/[0.04] border border-[#C8A96A]/30 rounded-[12px] p-6 flex flex-col items-center hover:bg-white/[0.08] hover:border-accent-gold transition-colors cursor-pointer">
                 <div className="w-12 h-12 rounded-full bg-[#1A1A1A] border border-[#C8A96A]/40 flex items-center justify-center mb-4">
@@ -601,18 +624,19 @@ const Repository = () => {
                 </div>
                 <h3 className="font-sans font-medium text-[16px] text-white mb-2">{item.title}</h3>
                 <p className="font-sans text-[13px] text-[#9B9790] mb-6 h-10">{item.desc}</p>
-                <Link 
-                  to="/studio/new" 
+                <button 
                   onClick={(e) => {
                     if (!isLoggedIn) {
                       e.preventDefault();
-                      openAuthPrompt('Sign in to contribute', 'Create an account to share with the community.');
+                      navigate('/login', { state: { from: '/studio/new' } });
+                    } else {
+                      navigate('/studio/new', { state: { type: item.type } });
                     }
                   }}
                   className="w-full py-2 bg-transparent border border-accent-gold text-accent-gold rounded font-sans text-[13px] hover:bg-accent-gold hover:text-[#111] transition-colors text-center"
                 >
                   Get Started
-                </Link>
+                </button>
               </div>
             ))}
           </div>

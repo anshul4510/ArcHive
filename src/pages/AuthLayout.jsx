@@ -3,6 +3,14 @@ import { ArrowLeft, Hexagon } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
+const PULSE_ANIMATIONS = [...Array(10)].map((_, i) => ({
+  id: `pulse-${i}`,
+  top: `${Math.random() * 100}%`,
+  left: `${Math.random() * 100}%`,
+  duration: 3 + Math.random() * 4,
+  delay: Math.random() * 5
+}));
+
 const AuthLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -58,19 +66,19 @@ const AuthLayout = ({ children }) => {
         </motion.div>
 
         {/* Layer 3: Gold Fill Cells */}
-        {[...Array(10)].map((_, i) => (
+        {PULSE_ANIMATIONS.map((anim) => (
           <motion.div
-            key={`pulse-${i}`}
+            key={anim.id}
             className="absolute opacity-4 mix-blend-screen"
             style={{
-              top: `${Math.random() * 100}%`,
-              left: `${Math.random() * 100}%`,
+              top: anim.top,
+              left: anim.left,
             }}
             animate={{ opacity: [0.04, 0.1, 0.04] }}
             transition={{ 
-              duration: 3 + Math.random() * 4, 
+              duration: anim.duration, 
               repeat: Infinity, 
-              delay: Math.random() * 5,
+              delay: anim.delay,
               ease: "easeInOut"
             }}
           >

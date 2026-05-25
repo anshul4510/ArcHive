@@ -1,5 +1,8 @@
 import React, { useId } from 'react';
 
+const DELAY_1 = Math.random() * 2;
+const DELAY_2 = Math.random() * 2;
+
 const HexBackground = ({ density = 10, opacity = 0.05, animated = true }) => {
   const patternId = useId();
   return (
@@ -21,7 +24,7 @@ const HexBackground = ({ density = 10, opacity = 0.05, animated = true }) => {
               strokeWidth="1"
               strokeOpacity={opacity}
               className={animated ? 'animate-hex-pulse' : ''}
-              style={{ animationDelay: `${Math.random() * 2}s` }}
+              style={{ animationDelay: `${DELAY_1}s` }}
             />
             <path
               d="M60 51.96L90 34.64V0L60 17.32"
@@ -30,7 +33,7 @@ const HexBackground = ({ density = 10, opacity = 0.05, animated = true }) => {
               strokeWidth="1"
               strokeOpacity={opacity}
               className={animated ? 'animate-hex-pulse' : ''}
-              style={{ animationDelay: `${Math.random() * 2}s` }}
+              style={{ animationDelay: `${DELAY_2}s` }}
             />
           </pattern>
         </defs>

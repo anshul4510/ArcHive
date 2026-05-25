@@ -20,10 +20,10 @@ export const mockProjects = [
     area: '120,000 sq ft',
     year: '2024',
     stats: {
-      upvotes: 428,
-      saves: 156,
-      views: '3.2k',
-      forks: 42
+      upvotes: 0,
+      saves: 0,
+      views: '0',
+      forks: 0
     },
     createdAt: '2 days ago',
     images: [
@@ -53,10 +53,10 @@ export const mockProjects = [
     area: '3,200 sq ft',
     year: '2023',
     stats: {
-      upvotes: 284,
-      saves: 91,
-      views: '1.2k',
-      forks: 34
+      upvotes: 0,
+      saves: 0,
+      views: '0',
+      forks: 0
     },
     createdAt: '3 days ago',
     images: [
@@ -84,10 +84,10 @@ export const mockProjects = [
     area: '85,000 sq ft',
     year: '2024',
     stats: {
-      upvotes: 512,
-      saves: 210,
-      views: '4.5k',
-      forks: 67
+      upvotes: 0,
+      saves: 0,
+      views: '0',
+      forks: 0
     },
     createdAt: '1 week ago',
     images: [
@@ -115,10 +115,10 @@ export const mockProjects = [
     area: '12,000 sq ft',
     year: '2024',
     stats: {
-      upvotes: 195,
-      saves: 72,
-      views: '980',
-      forks: 15
+      upvotes: 0,
+      saves: 0,
+      views: '0',
+      forks: 0
     },
     createdAt: '2 weeks ago',
     images: [
@@ -146,10 +146,10 @@ export const mockProjects = [
     area: '45,000 sq ft',
     year: '2025',
     stats: {
-      upvotes: 340,
-      saves: 145,
-      views: '2.1k',
-      forks: 28
+      upvotes: 0,
+      saves: 0,
+      views: '0',
+      forks: 0
     },
     createdAt: '1 month ago',
     images: [
